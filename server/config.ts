@@ -28,7 +28,7 @@ const getDefaultProvider = (): LLMProvider => {
   return "openai"; // Default fallback
 };
 
-// Export the configuration
+// Create the initial configuration
 export const config: Config = {
   defaultLLMProvider: getDefaultProvider(),
   providers: {
@@ -46,6 +46,25 @@ export const config: Config = {
     },
   },
 };
+
+/**
+ * Updates the Gemini models list with dynamically fetched models
+ * @param models Array of available Gemini model names
+ */
+export function updateGeminiModels(models: string[]) {
+  if (models && models.length > 0) {
+    // Keep the current model if it's in the new list, otherwise use first model
+    const currentModel = models.includes(config.providers.gemini.currentModel) 
+      ? config.providers.gemini.currentModel 
+      : models[0];
+      
+    // Update the configuration
+    config.providers.gemini.models = models;
+    config.providers.gemini.currentModel = currentModel;
+    
+    console.log(`Updated Gemini models: ${models.join(', ')}`);
+  }
+}
 
 // Helper function to check if a provider is available
 export function isProviderAvailable(provider: LLMProvider): boolean {

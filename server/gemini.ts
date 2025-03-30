@@ -16,6 +16,53 @@ const defaultConfig: GenerationConfig = {
 };
 
 /**
+ * Fetch available Gemini models using the API
+ * @returns Array of available model names
+ */
+export async function fetchGeminiModels(): Promise<string[]> {
+  try {
+    // Build the URL with the API key
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      throw new Error("GEMINI_API_KEY is not configured");
+    }
+    
+    const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
+    
+    // Make the HTTP request
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch Gemini models: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    
+    // Filter for generative models only
+    const modelNames = data.models
+      ?.filter((model: any) => model.name.includes('gemini'))
+      ?.map((model: any) => model.name.split('/').pop())
+      ?.filter(Boolean) || [];
+    
+    // If no models were found, return the default models
+    if (modelNames.length === 0) {
+      return ["gemini-pro", "gemini-pro-vision"];
+    }
+    
+    return modelNames;
+  } catch (error) {
+    console.error("Error fetching Gemini models:", error);
+    // Return default models if the API call fails
+    return ["gemini-pro", "gemini-pro-vision"];
+  }
+}
+
+/**
  * Analyze a resume text using Gemini
  * @param resumeText The content of the resume to analyze
  * @param modelName The name of the Gemini model to use

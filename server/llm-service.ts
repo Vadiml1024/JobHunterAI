@@ -1,10 +1,28 @@
-import { config, LLMProvider, ProviderConfig } from "./config";
+import { config, LLMProvider, ProviderConfig, updateGeminiModels } from "./config";
 import * as openaiService from "./openai";
 import * as geminiService from "./gemini";
 import { ChatMessage } from "../client/src/types";
 
 // Default provider from config
 let currentProvider: LLMProvider = config.defaultLLMProvider;
+
+// Initialize providers by fetching available models
+export async function initializeProviders() {
+  try {
+    // Fetch Gemini models if the API key is available
+    if (process.env.GEMINI_API_KEY) {
+      const geminiModels = await geminiService.fetchGeminiModels();
+      updateGeminiModels(geminiModels);
+    }
+    
+    // OpenAI models could also be fetched dynamically in a similar way
+    // if you want to implement that feature
+    
+    console.log("LLM providers initialized successfully");
+  } catch (error) {
+    console.error("Error initializing LLM providers:", error);
+  }
+}
 
 /**
  * Set the current LLM provider
