@@ -117,6 +117,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(jobs);
   });
 
+  app.get("/api/jobs/recommended", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) return res.status(401).send("Unauthorized");
+    
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : 3;
+    const recommendedJobs = await storage.getRecommendedJobs(req.user.id, limit);
+    res.json(recommendedJobs);
+  });
+
   app.get("/api/jobs/:id", async (req: Request, res: Response) => {
     if (!req.isAuthenticated()) return res.status(401).send("Unauthorized");
     
@@ -124,14 +132,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!job) return res.status(404).send("Job not found");
     
     res.json(job);
-  });
-
-  app.get("/api/jobs/recommended", async (req: Request, res: Response) => {
-    if (!req.isAuthenticated()) return res.status(401).send("Unauthorized");
-    
-    const limit = req.query.limit ? parseInt(req.query.limit as string) : 3;
-    const recommendedJobs = await storage.getRecommendedJobs(req.user.id, limit);
-    res.json(recommendedJobs);
   });
 
   app.post("/api/jobs/match", async (req: Request, res: Response) => {
