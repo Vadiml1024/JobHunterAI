@@ -2,9 +2,10 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth } from "./auth";
-import { analyzeResume, matchJobSkills, generateCoverLetter, chatWithAssistant, suggestResumeImprovements } from "./openai";
 import { insertResumeSchema, insertApplicationSchema, insertJobSchema } from "@shared/schema";
 import { z } from "zod";
+import * as llmService from "./llm-service";
+import { LLMProvider } from "./config";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Sets up /api/register, /api/login, /api/logout, /api/user
@@ -81,7 +82,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { resumeText } = req.body;
       if (!resumeText) return res.status(400).send("Resume text is required");
       
-      const analysis = await analyzeResume(resumeText);
+      const analysis = await llmService.analyzeResume(resumeText);
       res.json(analysis);
     } catch (error) {
       res.status(500).send((error as Error).message);
@@ -95,7 +96,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { resumeText, targetJobTitle } = req.body;
       if (!resumeText) return res.status(400).send("Resume text is required");
       
-      const suggestions = await suggestResumeImprovements(resumeText, targetJobTitle);
+      const suggestions = await llmService.suggestResumeImprovements(resumeText, targetJobTitle);
       res.json(suggestions);
     } catch (error) {
       res.status(500).send((error as Error).message);
@@ -142,7 +143,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).send("Resume skills and job description are required");
       }
       
-      const matchResult = await matchJobSkills(resumeSkills, jobDescription);
+      const matchResult = await llmService.matchJobSkills(resumeSkills, jobDescription);
       res.json(matchResult);
     } catch (error) {
       res.status(500).send((error as Error).message);
@@ -196,7 +197,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).send("Resume text and job description are required");
       }
       
-      const coverLetter = await generateCoverLetter(
+      const coverLetter = await llmService.generateCoverLetter(
         resumeText, 
         jobDescription,
         candidateName || req.user.name || "Candidate"
@@ -217,7 +218,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).send("Valid messages array is required");
       }
       
-      const response = await chatWithAssistant(messages, req.user.id);
+      const response = await llmService.chatWithAssistant(messages, req.user.id);
       res.json({ response });
     } catch (error) {
       res.status(500).send((error as Error).message);

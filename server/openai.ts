@@ -27,7 +27,12 @@ export async function analyzeResume(resumeText: string): Promise<{
       response_format: { type: "json_object" },
     });
 
-    const result = JSON.parse(response.choices[0].message.content);
+    const content = response.choices[0].message.content;
+    if (!content) {
+      throw new Error("Failed to get content from OpenAI response");
+    }
+    
+    const result = JSON.parse(content);
     return result;
   } catch (error) {
     console.error("Failed to analyze resume:", error);
@@ -61,7 +66,12 @@ export async function matchJobSkills(
       response_format: { type: "json_object" },
     });
 
-    const result = JSON.parse(response.choices[0].message.content);
+    const content = response.choices[0].message.content;
+    if (!content) {
+      throw new Error("Failed to get content from OpenAI response");
+    }
+    
+    const result = JSON.parse(content);
     return result;
   } catch (error) {
     console.error("Failed to match job skills:", error);
@@ -105,11 +115,19 @@ export async function chatWithAssistant(
 ): Promise<string> {
   try {
     const systemMessage = {
-      role: "system",
+      role: "system" as const,
       content: "You are JobAI, an advanced job search assistant powered by AI. Help users find jobs, improve their resumes, prepare for interviews, and provide career advice. Be concise, helpful, and professional."
     };
     
-    const conversationHistory = [systemMessage, ...messages];
+    // Convert messages to the OpenAI required format with proper typing
+    const formattedMessages = messages.map(msg => ({
+      role: (msg.role === "user" || msg.role === "assistant" || msg.role === "system") 
+            ? msg.role as "user" | "assistant" | "system"
+            : "user", // Default to user if invalid role
+      content: msg.content
+    }));
+    
+    const conversationHistory = [systemMessage, ...formattedMessages];
     
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
@@ -150,7 +168,12 @@ export async function suggestResumeImprovements(
       response_format: { type: "json_object" },
     });
 
-    const result = JSON.parse(response.choices[0].message.content);
+    const content = response.choices[0].message.content;
+    if (!content) {
+      throw new Error("Failed to get content from OpenAI response");
+    }
+    
+    const result = JSON.parse(content);
     return Array.isArray(result) ? result : [];
   } catch (error) {
     console.error("Failed to suggest resume improvements:", error);

@@ -7,7 +7,7 @@ import { ApplicationStatus, Application, Job } from "@/types";
 import { Building, ChevronRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
-export default function ApplicationStatus() {
+export default function ApplicationStatusWidget() {
   const { data: applications, isLoading } = useQuery<Application[]>({
     queryKey: ["/api/applications"],
   });

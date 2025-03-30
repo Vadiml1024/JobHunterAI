@@ -5,7 +5,7 @@ import MobileNav from "@/components/layout/MobileNav";
 import ChatAssistant from "@/components/layout/ChatAssistant";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import StatisticsCards from "@/components/dashboard/StatisticsCards";
-import ApplicationStatus from "@/components/dashboard/ApplicationStatus";
+import ApplicationStatusWidget from "@/components/dashboard/ApplicationStatus";
 import RecommendedJobs from "@/components/dashboard/RecommendedJobs";
 
 export default function DashboardPage() {
@@ -39,7 +39,7 @@ export default function DashboardPage() {
           <StatisticsCards />
 
           {/* Application Status */}
-          <ApplicationStatus />
+          <ApplicationStatusWidget />
 
           {/* Recommended Jobs */}
           <RecommendedJobs />
