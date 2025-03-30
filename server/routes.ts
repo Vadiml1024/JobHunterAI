@@ -51,11 +51,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       let fileUrl = null;
       let content = null;
+      let skills = null;
+      let matchScore = 70; // Default score for now
       
       // If a file was uploaded, save its path and extract content
       if (req.file) {
         fileUrl = `/uploads/${path.basename(req.file.path)}`;
         content = await extractTextFromFile(req.file.path);
+        
+        // If we have content, analyze it to extract skills
+        if (content) {
+          try {
+            console.log("Analyzing resume content to extract skills...");
+            const analysis = await llmService.analyzeResume(content);
+            if (analysis && analysis.skills && Array.isArray(analysis.skills)) {
+              skills = analysis.skills;
+              console.log(`Extracted ${skills.length} skills from resume`);
+            }
+          } catch (analysisError) {
+            console.error("Error analyzing resume:", analysisError);
+            // Continue without skills rather than failing the upload
+          }
+        }
       }
       
       // Create resume data object
@@ -65,12 +82,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         language: language || "English",
         content,
         fileUrl,
-        skills: null
+        skills,
+        matchScore
       };
       
       // Validate and save
       const validatedData = insertResumeSchema.parse(resumeData);
       const resume = await storage.createResume(validatedData);
+      
+      // If we didn't get skills during initial analysis but created the resume,
+      // analyze it in the background and update later
+      if (!skills && content) {
+        (async () => {
+          try {
+            console.log("Running background analysis for resume ID:", resume.id);
+            const analysis = await llmService.analyzeResume(content);
+            if (analysis && analysis.skills && Array.isArray(analysis.skills)) {
+              await storage.updateResume(resume.id, { 
+                skills: analysis.skills 
+              });
+              console.log(`Updated resume ${resume.id} with ${analysis.skills.length} skills`);
+            }
+          } catch (bgError) {
+            console.error("Background resume analysis failed:", bgError);
+          }
+        })();
+      }
+      
       res.status(201).json(resume);
     } catch (error) {
       console.error("Resume upload error:", error);
@@ -111,7 +149,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Resume analysis route
+  // Resume analysis routes
   app.post("/api/resumes/analyze", async (req: Request, res: Response) => {
     if (!req.isAuthenticated()) return res.status(401).send("Unauthorized");
     
@@ -122,6 +160,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const analysis = await llmService.analyzeResume(resumeText);
       res.json(analysis);
     } catch (error) {
+      res.status(500).send((error as Error).message);
+    }
+  });
+  
+  // Analyze an existing resume by ID
+  app.post("/api/resumes/:id/analyze", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) return res.status(401).send("Unauthorized");
+    
+    try {
+      const resumeId = parseInt(req.params.id);
+      const resume = await storage.getResume(resumeId);
+      
+      if (!resume) {
+        return res.status(404).send("Resume not found");
+      }
+      
+      if (resume.userId !== req.user.id) {
+        return res.status(403).send("Forbidden");
+      }
+      
+      if (!resume.content) {
+        return res.status(400).send("Resume has no content to analyze");
+      }
+      
+      // Call LLM to analyze resume
+      const analysis = await llmService.analyzeResume(resume.content);
+      
+      if (!analysis || !analysis.skills) {
+        return res.status(500).send("Failed to extract skills from resume");
+      }
+      
+      // Update resume with extracted skills
+      const updatedResume = await storage.updateResume(resumeId, {
+        skills: analysis.skills
+      });
+      
+      res.json({
+        success: true,
+        resume: updatedResume,
+        skills: analysis.skills
+      });
+    } catch (error) {
+      console.error("Resume analysis error:", error);
       res.status(500).send((error as Error).message);
     }
   });

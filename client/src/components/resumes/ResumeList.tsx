@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Resume } from "@/types";
+import { Resume } from "@shared/schema";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +34,7 @@ import { formatDistanceToNow } from "date-fns";
 export default function ResumeList() {
   const [previewResume, setPreviewResume] = useState<Resume | null>(null);
   const [editResume, setEditResume] = useState<Resume | null>(null);
+  const [analyzingId, setAnalyzingId] = useState<number | null>(null);
   
   const { data: resumes, isLoading } = useQuery<Resume[]>({
     queryKey: ["/api/resumes"]
@@ -48,10 +49,30 @@ export default function ResumeList() {
     }
   });
   
+  const analyzeMutation = useMutation({
+    mutationFn: async (id: number) => {
+      setAnalyzingId(id);
+      return await apiRequest("POST", `/api/resumes/${id}/analyze`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/resumes"] });
+      setAnalyzingId(null);
+    },
+    onError: (error) => {
+      console.error("Resume analysis error:", error);
+      alert("Failed to analyze resume. Please try again later.");
+      setAnalyzingId(null);
+    }
+  });
+  
   const handleDelete = (id: number) => {
     if (confirm("Are you sure you want to delete this resume?")) {
       deleteMutation.mutate(id);
     }
+  };
+  
+  const handleAnalyzeResume = (id: number) => {
+    analyzeMutation.mutate(id);
   };
   
   const formatDate = (date: Date) => {
@@ -140,6 +161,15 @@ export default function ResumeList() {
                           <Copy className="mr-2 h-4 w-4" />
                           <span>Duplicate</span>
                         </DropdownMenuItem>
+                        {(!resume.skills || resume.skills.length === 0) && (
+                          <DropdownMenuItem 
+                            onClick={() => handleAnalyzeResume(resume.id)}
+                            disabled={analyzingId === resume.id}
+                          >
+                            <FileText className="mr-2 h-4 w-4" />
+                            <span>{analyzingId === resume.id ? "Analyzing..." : "Analyze Skills"}</span>
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem 
                           className="text-red-600"
                           onClick={() => handleDelete(resume.id)}

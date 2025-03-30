@@ -37,7 +37,8 @@ export const insertResumeSchema = createInsertSchema(resumes).pick({
   language: true,
   content: true,
   fileUrl: true,
-  skills: true
+  skills: true,
+  matchScore: true
 });
 
 export const jobs = pgTable("jobs", {
