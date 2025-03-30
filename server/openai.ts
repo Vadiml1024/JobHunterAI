@@ -1,4 +1,11 @@
 import OpenAI from "openai";
+import { 
+  AnalyzeResumeParams, 
+  MatchJobSkillsParams, 
+  CoverLetterParams, 
+  ChatParams, 
+  ImprovementParams 
+} from "./llm-params";
 
 // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -36,15 +43,20 @@ export async function fetchOpenAIModels(): Promise<string[]> {
 }
 
 // Analyze resume and extract skills
-export async function analyzeResume(resumeText: string, model: string = "gpt-4o"): Promise<{
+export async function analyzeResume(params: AnalyzeResumeParams): Promise<{
   skills: string[],
   experience: string[],
   education: string[],
   summary: string
 }> {
   try {
+    const { resumeText, modelName = "gpt-4o", temperature = 0.2 } = params;
+    
     const response = await openai.chat.completions.create({
-      model,
+      model: modelName,
+      temperature,
+      max_tokens: params.maxTokens,
+      top_p: params.topP,
       messages: [
         {
           role: "system",
@@ -73,18 +85,19 @@ export async function analyzeResume(resumeText: string, model: string = "gpt-4o"
 }
 
 // Match skills with job requirements
-export async function matchJobSkills(
-  resumeSkills: string[],
-  jobDescription: string,
-  model: string = "gpt-4o"
-): Promise<{
+export async function matchJobSkills(params: MatchJobSkillsParams): Promise<{
   matchPercentage: number,
   matchedSkills: string[],
   missingSkills: string[]
 }> {
   try {
+    const { resumeSkills, jobDescription, modelName = "gpt-4o", temperature = 0.3 } = params;
+    
     const response = await openai.chat.completions.create({
-      model,
+      model: modelName,
+      temperature,
+      max_tokens: params.maxTokens,
+      top_p: params.topP,
       messages: [
         {
           role: "system",
@@ -113,15 +126,22 @@ export async function matchJobSkills(
 }
 
 // Generate customized cover letter
-export async function generateCoverLetter(
-  resumeText: string,
-  jobDescription: string,
-  candidateName: string,
-  model: string = "gpt-4o"
-): Promise<string> {
+export async function generateCoverLetter(params: CoverLetterParams): Promise<string> {
   try {
+    const { 
+      resumeText, 
+      jobDescription, 
+      additionalInfo = "", 
+      modelName = "gpt-4o", 
+      temperature = 0.7,
+      maxTokens = 1024
+    } = params;
+    
     const response = await openai.chat.completions.create({
-      model,
+      model: modelName,
+      temperature,
+      max_tokens: maxTokens,
+      top_p: params.topP,
       messages: [
         {
           role: "system",
@@ -130,7 +150,7 @@ export async function generateCoverLetter(
         },
         {
           role: "user",
-          content: `Resume: ${resumeText}\n\nJob description: ${jobDescription}\n\nCandidate name: ${candidateName}\n\nPlease write a professional cover letter.`,
+          content: `Resume: ${resumeText}\n\nJob description: ${jobDescription}\n\nAdditional information: ${additionalInfo}\n\nPlease write a professional cover letter.`,
         },
       ],
     });
@@ -143,12 +163,10 @@ export async function generateCoverLetter(
 }
 
 // Chat with job search assistant
-export async function chatWithAssistant(
-  messages: { role: string, content: string }[],
-  userId: number,
-  model: string = "gpt-4o"
-): Promise<string> {
+export async function chatWithAssistant(params: ChatParams): Promise<string> {
   try {
+    const { messages, userId, modelName = "gpt-4o", temperature = 0.7, maxTokens } = params;
+    
     const systemMessage = {
       role: "system" as const,
       content: "You are JobAI, an advanced job search assistant powered by AI. Help users find jobs, improve their resumes, prepare for interviews, and provide career advice. Be concise, helpful, and professional."
@@ -165,7 +183,10 @@ export async function chatWithAssistant(
     const conversationHistory = [systemMessage, ...formattedMessages];
     
     const response = await openai.chat.completions.create({
-      model,
+      model: modelName,
+      temperature,
+      max_tokens: maxTokens,
+      top_p: params.topP,
       messages: conversationHistory,
     });
 
@@ -177,19 +198,20 @@ export async function chatWithAssistant(
 }
 
 // Suggest resume improvements
-export async function suggestResumeImprovements(
-  resumeText: string,
-  targetJobTitle?: string,
-  model: string = "gpt-4o"
-): Promise<string[]> {
+export async function suggestResumeImprovements(params: ImprovementParams): Promise<string[]> {
   try {
+    const { resumeText, targetJob = "", modelName = "gpt-4o", temperature = 0.4 } = params;
+    
     let prompt = "Analyze this resume and suggest specific improvements:";
-    if (targetJobTitle) {
-      prompt += ` Focus on making it more appealing for ${targetJobTitle} positions.`;
+    if (targetJob) {
+      prompt += ` Focus on making it more appealing for ${targetJob} positions.`;
     }
     
     const response = await openai.chat.completions.create({
-      model,
+      model: modelName,
+      temperature,
+      max_tokens: params.maxTokens,
+      top_p: params.topP,
       messages: [
         {
           role: "system",

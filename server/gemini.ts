@@ -1,4 +1,11 @@
 import { GoogleGenerativeAI, GenerativeModel, GenerationConfig } from "@google/generative-ai";
+import { 
+  AnalyzeResumeParams, 
+  MatchJobSkillsParams, 
+  CoverLetterParams, 
+  ChatParams, 
+  ImprovementParams 
+} from "./llm-params";
 
 // Initialize the Google Generative AI with the API key
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
@@ -64,19 +71,17 @@ export async function fetchGeminiModels(): Promise<string[]> {
 
 /**
  * Analyze a resume text using Gemini
- * @param resumeText The content of the resume to analyze
- * @param modelName The name of the Gemini model to use
+ * @param params Parameters for resume analysis
  * @returns Analysis results including skills, experience, education and summary
  */
-export async function analyzeResume(
-  resumeText: string,
-  modelName: string = "gemini-pro"
-): Promise<{
+export async function analyzeResume(params: AnalyzeResumeParams): Promise<{
   skills: string[];
   experience: string[];
   education: string[];
   summary: string;
 }> {
+  const { resumeText, modelName = "gemini-pro", temperature = 0.2 } = params;
+  
   const prompt = `
   You are an expert resume analyst with years of experience in HR and recruitment.
   Please analyze the following resume and extract key information.
@@ -101,7 +106,10 @@ export async function analyzeResume(
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       generationConfig: {
         ...defaultConfig,
-        temperature: 0.2, // Lower temperature for more factual responses
+        temperature,
+        topP: params.topP,
+        topK: params.topK,
+        maxOutputTokens: params.maxTokens,
       },
     });
 
@@ -124,19 +132,16 @@ export async function analyzeResume(
 
 /**
  * Match job skills with user resume skills
- * @param resumeSkills Array of skills from the user's resume
- * @param jobDescription The job description to analyze
+ * @param params Parameters for job skills matching
  * @returns Match analysis with percentage and skill breakdown
  */
-export async function matchJobSkills(
-  resumeSkills: string[],
-  jobDescription: string,
-  modelName: string = "gemini-pro"
-): Promise<{
+export async function matchJobSkills(params: MatchJobSkillsParams): Promise<{
   matchPercentage: number;
   matchedSkills: string[];
   missingSkills: string[];
 }> {
+  const { resumeSkills, jobDescription, modelName = "gemini-pro", temperature = 0.3 } = params;
+  
   const prompt = `
   You are an AI expert in job matching and skills analysis.
   
@@ -165,7 +170,10 @@ export async function matchJobSkills(
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       generationConfig: {
         ...defaultConfig,
-        temperature: 0.3,
+        temperature,
+        topP: params.topP,
+        topK: params.topK,
+        maxOutputTokens: params.maxTokens,
       },
     });
 
@@ -187,17 +195,19 @@ export async function matchJobSkills(
 
 /**
  * Generate a cover letter based on resume and job description
- * @param resumeText The content of the user's resume
- * @param jobDescription The job description
- * @param additionalInfo Any additional information or preferences
+ * @param params Parameters for cover letter generation
  * @returns Generated cover letter
  */
-export async function generateCoverLetter(
-  resumeText: string,
-  jobDescription: string,
-  additionalInfo: string = "",
-  modelName: string = "gemini-pro"
-): Promise<string> {
+export async function generateCoverLetter(params: CoverLetterParams): Promise<string> {
+  const { 
+    resumeText, 
+    jobDescription, 
+    additionalInfo = "", 
+    modelName = "gemini-pro", 
+    temperature = 0.7,
+    maxTokens = 1024
+  } = params;
+  
   const prompt = `
   You are a professional cover letter writer with years of experience.
   
@@ -223,8 +233,10 @@ export async function generateCoverLetter(
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       generationConfig: {
         ...defaultConfig,
-        temperature: 0.7,
-        maxOutputTokens: 1024,
+        temperature,
+        topP: params.topP,
+        topK: params.topK,
+        maxOutputTokens: maxTokens,
       },
     });
 
@@ -237,14 +249,19 @@ export async function generateCoverLetter(
 
 /**
  * Chat with AI job search assistant
- * @param messages Array of previous chat messages
+ * @param params Parameters for chat interaction
  * @returns AI response to continue the conversation
  */
-export async function chatWithAssistant(
-  messages: { role: string; content: string }[],
-  modelName: string = "gemini-pro"
-): Promise<string> {
+export async function chatWithAssistant(params: ChatParams): Promise<string> {
   try {
+    const { 
+      messages, 
+      modelName = "gemini-pro", 
+      temperature = 0.7, 
+      maxTokens = 800,
+      // userId is ignored for Gemini (only needed for OpenAI)
+    } = params;
+    
     // Format messages for Gemini
     const formattedMessages = messages.map(msg => ({
       role: msg.role === "assistant" ? "model" : "user",
@@ -256,7 +273,10 @@ export async function chatWithAssistant(
     const chat = model.startChat({
       generationConfig: {
         ...defaultConfig,
-        maxOutputTokens: 800,
+        temperature,
+        topP: params.topP,
+        topK: params.topK,
+        maxOutputTokens: maxTokens,
       },
       history: formattedMessages.slice(0, -1) as any, // Add all but the last message to history
     });
@@ -274,15 +294,17 @@ export async function chatWithAssistant(
 
 /**
  * Suggest improvements for a resume
- * @param resumeText The content of the resume
- * @param targetJob Optional target job to tailor suggestions
+ * @param params Parameters for resume improvement suggestions
  * @returns Array of suggested improvements
  */
-export async function suggestResumeImprovements(
-  resumeText: string,
-  targetJob: string = "",
-  modelName: string = "gemini-pro"
-): Promise<string[]> {
+export async function suggestResumeImprovements(params: ImprovementParams): Promise<string[]> {
+  const { 
+    resumeText, 
+    targetJob = "", 
+    modelName = "gemini-pro", 
+    temperature = 0.4,
+  } = params;
+  
   const prompt = `
   You are an expert resume coach with years of experience helping job seekers improve their resumes.
   
@@ -309,7 +331,10 @@ export async function suggestResumeImprovements(
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       generationConfig: {
         ...defaultConfig,
-        temperature: 0.4,
+        temperature,
+        topP: params.topP,
+        topK: params.topK,
+        maxOutputTokens: params.maxTokens,
       },
     });
 

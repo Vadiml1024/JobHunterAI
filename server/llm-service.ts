@@ -2,6 +2,13 @@ import { config, LLMProvider, ProviderConfig, updateGeminiModels, updateOpenAIMo
 import * as openaiService from "./openai";
 import * as geminiService from "./gemini";
 import { ChatMessage } from "../client/src/types";
+import { 
+  AnalyzeResumeParams, 
+  MatchJobSkillsParams, 
+  CoverLetterParams, 
+  ChatParams, 
+  ImprovementParams 
+} from "./llm-params";
 
 // Default provider from config
 let currentProvider: LLMProvider = config.defaultLLMProvider;
@@ -82,11 +89,16 @@ export function getCurrentProvider(): LLMProvider {
  */
 export async function analyzeResume(resumeText: string) {
   try {
-    const model = config.providers[currentProvider].currentModel;
+    const modelName = config.providers[currentProvider].currentModel;
+    
+    const params: AnalyzeResumeParams = {
+      resumeText,
+      modelName
+    };
     
     return currentProvider === "openai" 
-      ? await openaiService.analyzeResume(resumeText, model)
-      : await geminiService.analyzeResume(resumeText, model);
+      ? await openaiService.analyzeResume(params)
+      : await geminiService.analyzeResume(params);
   } catch (error) {
     console.error(`Error in ${currentProvider} analyzeResume:`, error);
     throw error;
@@ -101,11 +113,17 @@ export async function analyzeResume(resumeText: string) {
  */
 export async function matchJobSkills(resumeSkills: string[], jobDescription: string) {
   try {
-    const model = config.providers[currentProvider].currentModel;
+    const modelName = config.providers[currentProvider].currentModel;
+    
+    const params: MatchJobSkillsParams = {
+      resumeSkills,
+      jobDescription,
+      modelName
+    };
     
     return currentProvider === "openai"
-      ? await openaiService.matchJobSkills(resumeSkills, jobDescription, model)
-      : await geminiService.matchJobSkills(resumeSkills, jobDescription, model);
+      ? await openaiService.matchJobSkills(params)
+      : await geminiService.matchJobSkills(params);
   } catch (error) {
     console.error(`Error in ${currentProvider} matchJobSkills:`, error);
     throw error;
@@ -125,11 +143,18 @@ export async function generateCoverLetter(
   additionalInfo: string = ""
 ) {
   try {
-    const model = config.providers[currentProvider].currentModel;
+    const modelName = config.providers[currentProvider].currentModel;
+    
+    const params: CoverLetterParams = {
+      resumeText,
+      jobDescription,
+      additionalInfo,
+      modelName
+    };
     
     return currentProvider === "openai"
-      ? await openaiService.generateCoverLetter(resumeText, jobDescription, additionalInfo, model)
-      : await geminiService.generateCoverLetter(resumeText, jobDescription, additionalInfo, model);
+      ? await openaiService.generateCoverLetter(params)
+      : await geminiService.generateCoverLetter(params);
   } catch (error) {
     console.error(`Error in ${currentProvider} generateCoverLetter:`, error);
     throw error;
@@ -144,18 +169,17 @@ export async function generateCoverLetter(
  */
 export async function chatWithAssistant(messages: ChatMessage[], userId?: number) {
   try {
-    const model = config.providers[currentProvider].currentModel;
+    const modelName = config.providers[currentProvider].currentModel;
     
-    if (currentProvider === "openai") {
-      // OpenAI requires userId as a number
-      if (userId === undefined) {
-        throw new Error("User ID is required for OpenAI chat");
-      }
-      return await openaiService.chatWithAssistant(messages, userId, model);
-    } else {
-      // Gemini doesn't require userId
-      return await geminiService.chatWithAssistant(messages, model);
-    }
+    const params: ChatParams = {
+      messages,
+      userId,
+      modelName
+    };
+    
+    return currentProvider === "openai"
+      ? await openaiService.chatWithAssistant(params)
+      : await geminiService.chatWithAssistant(params);
   } catch (error) {
     console.error(`Error in ${currentProvider} chatWithAssistant:`, error);
     throw error;
@@ -173,11 +197,17 @@ export async function suggestResumeImprovements(
   targetJob: string = ""
 ) {
   try {
-    const model = config.providers[currentProvider].currentModel;
+    const modelName = config.providers[currentProvider].currentModel;
+    
+    const params: ImprovementParams = {
+      resumeText,
+      targetJob,
+      modelName
+    };
     
     return currentProvider === "openai"
-      ? await openaiService.suggestResumeImprovements(resumeText, targetJob, model)
-      : await geminiService.suggestResumeImprovements(resumeText, targetJob, model);
+      ? await openaiService.suggestResumeImprovements(params)
+      : await geminiService.suggestResumeImprovements(params);
   } catch (error) {
     console.error(`Error in ${currentProvider} suggestResumeImprovements:`, error);
     throw error;
