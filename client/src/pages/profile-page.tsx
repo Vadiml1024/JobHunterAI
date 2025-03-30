@@ -61,6 +61,16 @@ export default function ProfilePage() {
     current: string;
     available: string[];
     defaultProvider: string;
+    providers?: {
+      openai?: {
+        models: string[];
+        currentModel: string;
+      };
+      gemini?: {
+        models: string[];
+        currentModel: string;
+      };
+    };
   }>({ current: "", available: [], defaultProvider: "" });
   const [llmLoading, setLlmLoading] = useState(false);
   const { user } = useAuth();
@@ -111,6 +121,9 @@ export default function ProfilePage() {
           title: "LLM Provider Updated",
           description: `Successfully switched to ${data.provider}`,
         });
+        
+        // Reload provider info after switching to get the latest provider data
+        loadLlmProviders();
       } else {
         throw new Error(`Failed to update provider: ${response.statusText}`);
       }
@@ -122,6 +135,80 @@ export default function ProfilePage() {
       });
     } finally {
       setLlmLoading(false);
+    }
+  };
+  
+  // Set LLM model for a provider
+  const handleModelChange = async (provider: string, model: string) => {
+    if (llmLoading) return;
+    
+    // Don't make API call if the model is already selected
+    const currentModel = llmProviders.providers?.[provider as keyof typeof llmProviders.providers]?.currentModel;
+    if (currentModel === model) return;
+    
+    setLlmLoading(true);
+    try {
+      const response = await fetch('/api/llm-providers/model', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ provider, model }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        // Update the providers state with the new model
+        setLlmProviders(prev => {
+          if (!prev.providers) return prev;
+          
+          return {
+            ...prev,
+            providers: {
+              ...prev.providers,
+              [provider]: {
+                ...prev.providers[provider as keyof typeof prev.providers],
+                currentModel: model
+              }
+            }
+          };
+        });
+        
+        toast({
+          title: "AI Model Updated",
+          description: `Successfully set ${provider} model to ${model}`,
+        });
+      } else {
+        throw new Error(`Failed to update model: ${response.statusText}`);
+      }
+    } catch (error) {
+      toast({
+        title: "Failed to update AI Model",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setLlmLoading(false);
+    }
+  };
+  
+  // Function to load LLM providers
+  const loadLlmProviders = async () => {
+    if (!user) return;
+    
+    try {
+      const response = await fetch('/api/llm-providers', {
+        credentials: 'include',
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setLlmProviders(data);
+        console.log("LLM providers loaded:", data);
+      }
+    } catch (error) {
+      console.error("Failed to load LLM providers:", error);
     }
   };
 
@@ -492,6 +579,37 @@ export default function ProfilePage() {
                           resume analysis, job matching, cover letter generation, and the chat assistant.
                         </p>
                       </div>
+                      
+                      {/* Model Selection */}
+                      {llmProviders.current && llmProviders.providers && (
+                        <div className="grid gap-2 mt-4">
+                          <label className="text-sm font-medium">Select AI Model</label>
+                          <div className="flex flex-col gap-3">
+                            {llmProviders.providers[llmProviders.current as keyof typeof llmProviders.providers]?.models.map((model) => (
+                              <Button 
+                                key={model}
+                                onClick={() => handleModelChange(llmProviders.current, model)}
+                                variant={
+                                  llmProviders.providers?.[llmProviders.current as keyof typeof llmProviders.providers]?.currentModel === model 
+                                    ? "default" 
+                                    : "outline"
+                                }
+                                disabled={
+                                  llmLoading || 
+                                  llmProviders.providers?.[llmProviders.current as keyof typeof llmProviders.providers]?.currentModel === model
+                                }
+                                className="w-full text-left justify-start"
+                              >
+                                {model}
+                              </Button>
+                            ))}
+                          </div>
+                          <p className="text-xs text-gray-500 mt-2">
+                            Select which model to use with the {llmProviders.current} provider. 
+                            Different models have different capabilities and performance characteristics.
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </CardContent>
