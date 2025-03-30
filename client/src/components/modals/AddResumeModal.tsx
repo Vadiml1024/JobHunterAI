@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -135,31 +135,73 @@ export default function AddResumeModal({ open, onClose }: AddResumeModalProps) {
           
           {createMethod === "upload" && (
             <div className="mt-2">
-              <div className="border-2 border-dashed border-gray-300 rounded-md px-6 pt-5 pb-6 flex justify-center">
+              <div 
+                className="border-2 border-dashed border-gray-300 rounded-md px-6 pt-5 pb-6 flex justify-center"
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  e.currentTarget.classList.add('border-primary-500');
+                }}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  e.currentTarget.classList.remove('border-primary-500');
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  e.currentTarget.classList.remove('border-primary-500');
+                  
+                  if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                    const droppedFile = e.dataTransfer.files[0];
+                    const fileExtension = droppedFile.name.split('.').pop()?.toLowerCase();
+                    
+                    if (['pdf', 'doc', 'docx'].includes(fileExtension || '')) {
+                      setFile(droppedFile);
+                    } else {
+                      alert('Please upload a PDF or DOCX file');
+                    }
+                  }
+                }}
+              >
                 <div className="space-y-1 text-center">
                   <FileUp className="mx-auto h-12 w-12 text-gray-400" />
-                  <div className="flex text-sm text-gray-600">
-                    <label
-                      htmlFor="file-upload"
-                      className="relative cursor-pointer bg-white rounded-md font-medium text-primary-600 hover:text-primary-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-primary-500"
+                  <div className="flex flex-col items-center text-sm text-gray-600">
+                    <Button 
+                      type="button"
+                      variant="ghost" 
+                      className="font-medium text-primary-600 hover:text-primary-500"
+                      onClick={() => {
+                        // Create a temporary input element and trigger it
+                        const input = document.createElement('input');
+                        input.type = 'file';
+                        input.accept = '.pdf,.doc,.docx';
+                        input.onchange = (e) => {
+                          const target = e.target as HTMLInputElement;
+                          if (target.files && target.files[0]) {
+                            setFile(target.files[0]);
+                          }
+                        };
+                        input.click();
+                      }}
                     >
-                      <span>Upload a file</span>
-                      <input
-                        id="file-upload"
-                        name="file-upload"
-                        type="file"
-                        className="sr-only"
-                        onChange={handleFileChange}
-                        accept=".pdf,.doc,.docx"
-                      />
-                    </label>
-                    <p className="pl-1">or drag and drop</p>
+                      Upload a file
+                    </Button>
+                    <p className="mt-1">or drag and drop</p>
                   </div>
                   <p className="text-xs text-gray-500">PDF, DOCX up to 10MB</p>
                   {file && (
-                    <p className="text-sm text-green-600">
-                      Selected: {file.name}
-                    </p>
+                    <div className="text-sm text-green-600 mt-2 flex items-center justify-center gap-2">
+                      <span>Selected: {file.name}</span>
+                      <Button 
+                        type="button" 
+                        variant="ghost" 
+                        className="h-6 w-6 p-0 text-red-500"
+                        onClick={() => setFile(null)}
+                      >
+                        ✕
+                      </Button>
+                    </div>
                   )}
                 </div>
               </div>
