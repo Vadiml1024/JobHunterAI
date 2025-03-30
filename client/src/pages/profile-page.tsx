@@ -345,39 +345,43 @@ export default function ProfilePage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    <div>
-                      <FormField
-                        control={form.control}
-                        name="language"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Preferred Language</FormLabel>
-                            <Select 
-                              onValueChange={field.onChange} 
-                              defaultValue={field.value}
-                            >
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select a language" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="en">English</SelectItem>
-                                <SelectItem value="fr">French</SelectItem>
-                                <SelectItem value="de">German</SelectItem>
-                                <SelectItem value="es">Spanish</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
+                    <Form {...form}>
+                      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                        <div>
+                          <FormField
+                            control={form.control}
+                            name="language"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Preferred Language</FormLabel>
+                                <Select 
+                                  onValueChange={field.onChange} 
+                                  defaultValue={field.value}
+                                >
+                                  <FormControl>
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select a language" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    <SelectItem value="en">English</SelectItem>
+                                    <SelectItem value="fr">French</SelectItem>
+                                    <SelectItem value="de">German</SelectItem>
+                                    <SelectItem value="es">Spanish</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                        <div className="flex justify-end mt-4">
+                          <Button type="submit">Save Preferences</Button>
+                        </div>
+                      </form>
+                    </Form>
                   </div>
                 </CardContent>
-                <CardFooter>
-                  <Button>Save Preferences</Button>
-                </CardFooter>
               </Card>
             </TabsContent>
             
@@ -392,7 +396,7 @@ export default function ProfilePage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    <div className="grid gap-4">
+                    <form className="grid gap-4">
                       <div className="grid gap-2">
                         <Label htmlFor="current-password">Current Password</Label>
                         <Input id="current-password" type="password" />
@@ -405,12 +409,12 @@ export default function ProfilePage() {
                         <Label htmlFor="confirm-password">Confirm Password</Label>
                         <Input id="confirm-password" type="password" />
                       </div>
-                    </div>
+                      <div className="flex justify-end mt-4">
+                        <Button type="submit">Update Password</Button>
+                      </div>
+                    </form>
                   </div>
                 </CardContent>
-                <CardFooter>
-                  <Button>Update Password</Button>
-                </CardFooter>
               </Card>
               
               <Card>
