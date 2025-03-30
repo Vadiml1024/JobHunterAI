@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { apiRequest, queryClient, getQueryFn } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import Sidebar from "@/components/layout/Sidebar";
 import TopBar from "@/components/layout/TopBar";
 import MobileNav from "@/components/layout/MobileNav";
@@ -67,39 +67,63 @@ export default function ProfilePage() {
   const { toast } = useToast();
 
   // Load LLM provider info
-  const { data: providersData } = useQuery({
-    queryKey: ["/api/llm-providers"],
-    queryFn: getQueryFn({ on401: "throw" }),
-    onSuccess: (data) => {
-      setLlmProviders(data);
-    },
-    enabled: !!user,
-  });
+  useEffect(() => {
+    async function loadLlmProviders() {
+      if (!user) return;
+      
+      try {
+        const response = await fetch('/api/llm-providers', {
+          credentials: 'include',
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setLlmProviders(data);
+          console.log("LLM providers loaded:", data);
+        }
+      } catch (error) {
+        console.error("Failed to load LLM providers:", error);
+      }
+    }
+    
+    loadLlmProviders();
+  }, [user]);
 
-  // Set LLM provider mutation
-  const setLlmProviderMutation = useMutation({
-    mutationFn: async (provider: string) => {
-      setLlmLoading(true);
-      const res = await apiRequest("POST", "/api/llm-providers/set", { provider });
-      return res.json();
-    },
-    onSuccess: (data) => {
-      setLlmLoading(false);
-      setLlmProviders(prev => ({ ...prev, current: data.provider }));
-      toast({
-        title: "LLM Provider Updated",
-        description: `Successfully switched to ${data.provider}`,
+  // Set LLM provider 
+  const handleProviderChange = async (provider: string) => {
+    if (llmLoading || provider === llmProviders.current) return;
+    
+    setLlmLoading(true);
+    try {
+      const response = await fetch('/api/llm-providers/set', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ provider }),
       });
-    },
-    onError: (error: Error) => {
-      setLlmLoading(false);
+      
+      if (response.ok) {
+        const data = await response.json();
+        setLlmProviders(prev => ({ ...prev, current: data.provider }));
+        toast({
+          title: "LLM Provider Updated",
+          description: `Successfully switched to ${data.provider}`,
+        });
+      } else {
+        throw new Error(`Failed to update provider: ${response.statusText}`);
+      }
+    } catch (error) {
       toast({
         title: "Failed to update LLM Provider",
-        description: error.message,
+        description: error instanceof Error ? error.message : "Unknown error",
         variant: "destructive",
       });
+    } finally {
+      setLlmLoading(false);
     }
-  });
+  };
 
   // Profile form
   const form = useForm<ProfileFormValues>({
@@ -454,7 +478,7 @@ export default function ProfilePage() {
                           {llmProviders.available.map((provider) => (
                             <Button 
                               key={provider}
-                              onClick={() => setLlmProviderMutation.mutate(provider)}
+                              onClick={() => handleProviderChange(provider)}
                               variant={llmProviders.current === provider ? "default" : "outline"}
                               disabled={llmLoading || llmProviders.current === provider}
                               className="flex-1 capitalize"
