@@ -1,4 +1,4 @@
-import type { Express, Request, Response } from "express";
+import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth } from "./auth";
@@ -6,6 +6,8 @@ import { insertResumeSchema, insertApplicationSchema, insertJobSchema } from "@s
 import { z } from "zod";
 import * as llmService from "./llm-service";
 import { LLMProvider } from "./config";
+import { upload, extractTextFromFile } from "./upload";
+import path from "path";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Sets up /api/register, /api/login, /api/logout, /api/user
@@ -29,14 +31,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(resume);
   });
 
-  app.post("/api/resumes", async (req: Request, res: Response) => {
+  // Serve uploaded files
+  app.use('/uploads', (req: Request, res: Response, next: NextFunction) => {
+    if (!req.isAuthenticated()) return res.status(401).send("Unauthorized");
+    next();
+  }, express.static(path.join(process.cwd(), 'uploads')));
+
+  app.post("/api/resumes", upload.single('file'), async (req: Request, res: Response) => {
     if (!req.isAuthenticated()) return res.status(401).send("Unauthorized");
     
     try {
-      const resumeData = insertResumeSchema.parse({ ...req.body, userId: req.user.id });
-      const resume = await storage.createResume(resumeData);
+      // We need to handle multipart form data differently
+      const { name, language } = req.body;
+      
+      // Check required fields
+      if (!name) {
+        return res.status(400).json({ error: "Resume name is required" });
+      }
+      
+      let fileUrl = null;
+      let content = null;
+      
+      // If a file was uploaded, save its path and extract content
+      if (req.file) {
+        fileUrl = `/uploads/${path.basename(req.file.path)}`;
+        content = await extractTextFromFile(req.file.path);
+      }
+      
+      // Create resume data object
+      const resumeData = {
+        userId: req.user.id,
+        name,
+        language: language || "English",
+        content,
+        fileUrl,
+        skills: null
+      };
+      
+      // Validate and save
+      const validatedData = insertResumeSchema.parse(resumeData);
+      const resume = await storage.createResume(validatedData);
       res.status(201).json(resume);
     } catch (error) {
+      console.error("Resume upload error:", error);
       if (error instanceof z.ZodError) {
         return res.status(400).json({ errors: error.errors });
       }
