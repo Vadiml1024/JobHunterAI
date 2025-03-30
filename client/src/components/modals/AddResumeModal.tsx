@@ -136,21 +136,39 @@ export default function AddResumeModal({ open, onClose }: AddResumeModalProps) {
           {createMethod === "upload" && (
             <div className="mt-2">
               <div 
-                className="border-2 border-dashed border-gray-300 rounded-md px-6 pt-5 pb-6 flex justify-center"
+                className="border-2 border-dashed border-gray-300 hover:border-primary-400 hover:bg-primary-50/30 transition-colors rounded-md px-6 pt-5 pb-6 flex justify-center cursor-pointer"
+                onClick={() => {
+                  if (!file) {
+                    // Create a temporary input element and trigger it
+                    const input = document.createElement('input');
+                    input.type = 'file';
+                    input.accept = '.pdf,.doc,.docx';
+                    input.onchange = (e) => {
+                      const target = e.target as HTMLInputElement;
+                      if (target.files && target.files[0]) {
+                        setFile(target.files[0]);
+                      }
+                    };
+                    input.click();
+                  }
+                }}
                 onDragOver={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
                   e.currentTarget.classList.add('border-primary-500');
+                  e.currentTarget.classList.add('bg-primary-50/50');
                 }}
                 onDragLeave={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
                   e.currentTarget.classList.remove('border-primary-500');
+                  e.currentTarget.classList.remove('bg-primary-50/50');
                 }}
                 onDrop={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
                   e.currentTarget.classList.remove('border-primary-500');
+                  e.currentTarget.classList.remove('bg-primary-50/50');
                   
                   if (e.dataTransfer.files && e.dataTransfer.files[0]) {
                     const droppedFile = e.dataTransfer.files[0];
@@ -169,9 +187,11 @@ export default function AddResumeModal({ open, onClose }: AddResumeModalProps) {
                   <div className="flex flex-col items-center text-sm text-gray-600">
                     <Button 
                       type="button"
-                      variant="ghost" 
-                      className="font-medium text-primary-600 hover:text-primary-500"
-                      onClick={() => {
+                      variant="default" 
+                      size="lg"
+                      className="mt-2 mb-2 py-6 px-8 flex items-center gap-2 text-base font-semibold shadow-sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
                         // Create a temporary input element and trigger it
                         const input = document.createElement('input');
                         input.type = 'file';
@@ -185,9 +205,10 @@ export default function AddResumeModal({ open, onClose }: AddResumeModalProps) {
                         input.click();
                       }}
                     >
-                      Upload a file
+                      <FileUp className="h-5 w-5" />
+                      Select File
                     </Button>
-                    <p className="mt-1">or drag and drop</p>
+                    <p className="mt-1 font-medium">or drag and drop</p>
                   </div>
                   <p className="text-xs text-gray-500">PDF, DOCX up to 10MB</p>
                   {file && (
