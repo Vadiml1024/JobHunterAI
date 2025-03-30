@@ -241,23 +241,12 @@ export default function ResumeList() {
               </div>
               
               <div>
-                <h3 className="text-lg font-medium">Experience</h3>
+                <h3 className="text-lg font-medium">Resume Content</h3>
                 <div className="mt-2 bg-gray-50 p-4 rounded-md">
-                  {previewResume.experience ? (
-                    <div className="whitespace-pre-line">{previewResume.experience}</div>
+                  {previewResume.content ? (
+                    <div className="whitespace-pre-line">{previewResume.content}</div>
                   ) : (
-                    <p className="text-gray-500">No experience information found</p>
-                  )}
-                </div>
-              </div>
-              
-              <div>
-                <h3 className="text-lg font-medium">Education</h3>
-                <div className="mt-2 bg-gray-50 p-4 rounded-md">
-                  {previewResume.education ? (
-                    <div className="whitespace-pre-line">{previewResume.education}</div>
-                  ) : (
-                    <p className="text-gray-500">No education information found</p>
+                    <p className="text-gray-500">No resume content available</p>
                   )}
                 </div>
               </div>
@@ -265,8 +254,9 @@ export default function ResumeList() {
               <div className="flex justify-between">
                 <Button 
                   variant="outline" 
-                  onClick={() => window.open(`/uploads/${previewResume.filePath}`, '_blank')}
+                  onClick={() => previewResume.fileUrl ? window.open(previewResume.fileUrl, '_blank') : alert('No file available')}
                   className="gap-2"
+                  disabled={!previewResume.fileUrl}
                 >
                   <FileText className="h-4 w-4" />
                   View Original File
