@@ -3,6 +3,38 @@ import OpenAI from "openai";
 // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
+/**
+ * Fetch available OpenAI models using the API
+ * @returns Array of available model names suitable for chat completions
+ */
+export async function fetchOpenAIModels(): Promise<string[]> {
+  try {
+    // Only proceed if we have an API key
+    if (!process.env.OPENAI_API_KEY) {
+      console.log("OpenAI API key not found, skipping model fetch");
+      return [];
+    }
+
+    // Fetch all models
+    const response = await openai.models.list();
+    
+    // Filter models that are suitable for chat completions (GPT models)
+    const chatModels = response.data
+      .filter(model => 
+        // Filter for models that start with "gpt-" as these are chat completion models
+        model.id.startsWith('gpt-')
+      )
+      .map(model => model.id);
+    
+    console.log(`Found ${chatModels.length} OpenAI chat models`);
+    return chatModels;
+  } catch (error) {
+    console.error("Error fetching OpenAI models:", error);
+    // Return empty array if failed
+    return [];
+  }
+}
+
 // Analyze resume and extract skills
 export async function analyzeResume(resumeText: string, model: string = "gpt-4o"): Promise<{
   skills: string[],

@@ -66,6 +66,43 @@ export function updateGeminiModels(models: string[]) {
   }
 }
 
+/**
+ * Updates the OpenAI models list with dynamically fetched models
+ * @param models Array of available OpenAI model names
+ */
+export function updateOpenAIModels(models: string[]) {
+  if (models && models.length > 0) {
+    // Add default models if they're not in the API result (sometimes API doesn't return them all)
+    const defaultModels = ["gpt-4o", "gpt-3.5-turbo", "gpt-4-turbo"];
+    
+    // Merge and deduplicate arrays without using Set spread
+    const combinedModels: string[] = [];
+    // Add default models first
+    defaultModels.forEach(model => {
+      if (!combinedModels.includes(model)) {
+        combinedModels.push(model);
+      }
+    });
+    // Add API-fetched models
+    models.forEach(model => {
+      if (!combinedModels.includes(model)) {
+        combinedModels.push(model);
+      }
+    });
+    
+    // Keep the current model if it's in the new list, otherwise use gpt-4o
+    const currentModel = combinedModels.includes(config.providers.openai.currentModel) 
+      ? config.providers.openai.currentModel 
+      : "gpt-4o";
+      
+    // Update the configuration
+    config.providers.openai.models = combinedModels;
+    config.providers.openai.currentModel = currentModel;
+    
+    console.log(`Updated OpenAI models: ${combinedModels.length} models available`);
+  }
+}
+
 // Helper function to check if a provider is available
 export function isProviderAvailable(provider: LLMProvider): boolean {
   return config.providers[provider].available;
