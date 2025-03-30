@@ -336,9 +336,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).send("Valid messages array is required");
       }
       
+      // Validate message format
+      const validRoles = ["user", "assistant", "system"];
+      const isValidMessages = messages.every(msg => 
+        msg && typeof msg === "object" && 
+        typeof msg.content === "string" && 
+        validRoles.includes(msg.role)
+      );
+      
+      if (!isValidMessages) {
+        return res.status(400).send("Invalid message format. Each message must have 'role' and 'content' properties.");
+      }
+      
+      // Make sure we have at least one user message
+      if (!messages.some(msg => msg.role === "user")) {
+        return res.status(400).send("At least one user message is required");
+      }
+      
       const response = await llmService.chatWithAssistant(messages, req.user.id);
       res.json({ response });
     } catch (error) {
+      console.error("Chat API error:", error);
       res.status(500).send((error as Error).message);
     }
   });

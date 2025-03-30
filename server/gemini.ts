@@ -262,14 +262,71 @@ export async function chatWithAssistant(params: ChatParams): Promise<string> {
       // userId is ignored for Gemini (only needed for OpenAI)
     } = params;
     
+    // Add a system prompt manually since Gemini doesn't support system messages directly
+    const systemMessage = "You are JobAI, an advanced job search assistant powered by AI. Help users find jobs, improve their resumes, prepare for interviews, and provide career advice. Be concise, helpful, and professional.";
+    
+    // For simple queries without conversation history, we'll use the generateContent method
+    if (messages.length <= 2) {
+      // Just generate content with the user message and system context
+      const userContent = messages.find(msg => msg.role === "user")?.content || "";
+      if (!userContent) {
+        throw new Error("No user message found");
+      }
+      
+      const prompt = `${systemMessage}\n\nUser: ${userContent}`;
+      const model = getGeminiModel(modelName);
+      
+      const result = await model.generateContent({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: {
+          ...defaultConfig,
+          temperature,
+          topP: params.topP,
+          topK: params.topK,
+          maxOutputTokens: maxTokens,
+        },
+      });
+      
+      return result.response.text();
+    }
+    
+    // For more complex conversations, build a proper chat history
+    // Filter to only include user and assistant messages
+    const chatMessages = messages.filter(msg => msg.role === "user" || msg.role === "assistant");
+    
+    // Make sure we start with a user message for Gemini
+    let historyMessages = [...chatMessages];
+    if (historyMessages.length > 0 && historyMessages[0].role !== "user") {
+      // If the first message is not from a user, we need to handle it differently
+      // We can prepend a dummy user message to satisfy Gemini's requirements
+      historyMessages.unshift({
+        role: "user",
+        content: "Hello, I need help with my job search."
+      });
+    }
+    
     // Format messages for Gemini
-    const formattedMessages = messages.map(msg => ({
+    const formattedMessages = historyMessages.map(msg => ({
       role: msg.role === "assistant" ? "model" : "user",
       parts: [{ text: msg.content }]
     }));
 
     // Create a chat session
     const model = getGeminiModel(modelName);
+    
+    // Get the most recent user message to send
+    const lastUserMsgIndex = historyMessages.map(m => m.role).lastIndexOf("user");
+    
+    if (lastUserMsgIndex === -1 || lastUserMsgIndex >= historyMessages.length - 1) {
+      // If the last message is already from the user, use that
+      // or if no user message is found, handle the error
+      throw new Error("Invalid message sequence for chat");
+    }
+    
+    // Use all messages up to the last user message as history
+    const history = formattedMessages.slice(0, lastUserMsgIndex);
+    
+    // Create chat with history
     const chat = model.startChat({
       generationConfig: {
         ...defaultConfig,
@@ -278,12 +335,12 @@ export async function chatWithAssistant(params: ChatParams): Promise<string> {
         topK: params.topK,
         maxOutputTokens: maxTokens,
       },
-      history: formattedMessages.slice(0, -1) as any, // Add all but the last message to history
+      history: history
     });
 
-    // Send the last message to get a response
-    const lastMessage = formattedMessages[formattedMessages.length - 1];
-    const result = await chat.sendMessage(lastMessage.parts[0].text);
+    // Send the last user message to get a response
+    const lastUserMessage = historyMessages[lastUserMsgIndex].content;
+    const result = await chat.sendMessage(lastUserMessage);
     
     return result.response.text();
   } catch (error) {

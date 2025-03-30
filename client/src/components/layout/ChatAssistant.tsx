@@ -26,14 +26,25 @@ export default function ChatAssistant({ open, onClose }: ChatAssistantProps) {
   const { user } = useAuth();
 
   const chatMutation = useMutation({
-    mutationFn: async (messages: ChatMessage[]) => {
-      const res = await apiRequest('POST', '/api/chat', { messages });
+    mutationFn: async (messageData: { messages: ChatMessage[] }) => {
+      const res = await apiRequest('POST', '/api/chat', messageData);
       return res.json();
     },
     onSuccess: (data) => {
       setMessages(prev => [
         ...prev,
         { role: 'assistant', content: data.response }
+      ]);
+    },
+    onError: (error) => {
+      console.error('Chat error:', error);
+      // Add a system message to inform the user about the error
+      setMessages(prev => [
+        ...prev,
+        { 
+          role: 'assistant', 
+          content: 'Sorry, I encountered an error. Please try again or ask a different question.' 
+        }
       ]);
     }
   });
@@ -49,8 +60,17 @@ export default function ChatAssistant({ open, onClose }: ChatAssistantProps) {
     setMessages(prev => [...prev, newUserMessage]);
     setInputValue('');
     
+    // Add a system message in the first position if it doesn't exist
+    const messagesWithSystem = [...messages, newUserMessage];
+    if (!messagesWithSystem.some(msg => msg.role === 'system')) {
+      messagesWithSystem.unshift({
+        role: 'system',
+        content: 'You are JobAI, an advanced job search assistant. Be helpful, concise, and professional.'
+      });
+    }
+    
     // Send all messages to the backend for context
-    chatMutation.mutate([...messages, newUserMessage]);
+    chatMutation.mutate({ messages: messagesWithSystem });
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
