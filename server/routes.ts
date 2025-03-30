@@ -246,6 +246,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     res.json({ provider, success });
   });
+  
+  app.post("/api/llm-providers/model", (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) return res.status(401).send("Unauthorized");
+    
+    const { provider, model } = req.body;
+    if (!provider || !model) {
+      return res.status(400).send("Provider and model are required");
+    }
+    
+    const success = llmService.setProviderModel(provider, model);
+    if (!success) {
+      return res.status(400).send(`Model '${model}' for provider '${provider}' is not available`);
+    }
+    
+    res.json({ 
+      provider, 
+      model,
+      success 
+    });
+  });
 
   const httpServer = createServer(app);
   return httpServer;

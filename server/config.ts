@@ -2,17 +2,18 @@
 
 export type LLMProvider = "openai" | "gemini";
 
+export interface ProviderConfig {
+  available: boolean;
+  defaultModel: string;
+  models: string[];
+  currentModel: string;
+}
+
 interface Config {
   defaultLLMProvider: LLMProvider;
   providers: {
-    openai: {
-      available: boolean;
-      defaultModel: string;
-    };
-    gemini: {
-      available: boolean;
-      defaultModel: string;
-    };
+    openai: ProviderConfig;
+    gemini: ProviderConfig;
   };
 }
 
@@ -34,10 +35,14 @@ export const config: Config = {
     openai: {
       available: openaiAvailable,
       defaultModel: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024
+      models: ["gpt-4o", "gpt-3.5-turbo", "gpt-4-turbo"],
+      currentModel: "gpt-4o"
     },
     gemini: {
       available: geminiAvailable,
       defaultModel: "gemini-pro",
+      models: ["gemini-pro", "gemini-pro-vision"],
+      currentModel: "gemini-pro"
     },
   },
 };

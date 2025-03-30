@@ -4,7 +4,7 @@ import OpenAI from "openai";
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 // Analyze resume and extract skills
-export async function analyzeResume(resumeText: string): Promise<{
+export async function analyzeResume(resumeText: string, model: string = "gpt-4o"): Promise<{
   skills: string[],
   experience: string[],
   education: string[],
@@ -12,7 +12,7 @@ export async function analyzeResume(resumeText: string): Promise<{
 }> {
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model,
       messages: [
         {
           role: "system",
@@ -43,7 +43,8 @@ export async function analyzeResume(resumeText: string): Promise<{
 // Match skills with job requirements
 export async function matchJobSkills(
   resumeSkills: string[],
-  jobDescription: string
+  jobDescription: string,
+  model: string = "gpt-4o"
 ): Promise<{
   matchPercentage: number,
   matchedSkills: string[],
@@ -51,7 +52,7 @@ export async function matchJobSkills(
 }> {
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model,
       messages: [
         {
           role: "system",
@@ -83,11 +84,12 @@ export async function matchJobSkills(
 export async function generateCoverLetter(
   resumeText: string,
   jobDescription: string,
-  candidateName: string
+  candidateName: string,
+  model: string = "gpt-4o"
 ): Promise<string> {
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model,
       messages: [
         {
           role: "system",
@@ -111,7 +113,8 @@ export async function generateCoverLetter(
 // Chat with job search assistant
 export async function chatWithAssistant(
   messages: { role: string, content: string }[],
-  userId: number
+  userId: number,
+  model: string = "gpt-4o"
 ): Promise<string> {
   try {
     const systemMessage = {
@@ -130,7 +133,7 @@ export async function chatWithAssistant(
     const conversationHistory = [systemMessage, ...formattedMessages];
     
     const response = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model,
       messages: conversationHistory,
     });
 
@@ -144,7 +147,8 @@ export async function chatWithAssistant(
 // Suggest resume improvements
 export async function suggestResumeImprovements(
   resumeText: string,
-  targetJobTitle?: string
+  targetJobTitle?: string,
+  model: string = "gpt-4o"
 ): Promise<string[]> {
   try {
     let prompt = "Analyze this resume and suggest specific improvements:";
@@ -153,7 +157,7 @@ export async function suggestResumeImprovements(
     }
     
     const response = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model,
       messages: [
         {
           role: "system",

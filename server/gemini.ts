@@ -3,9 +3,10 @@ import { GoogleGenerativeAI, GenerativeModel, GenerationConfig } from "@google/g
 // Initialize the Google Generative AI with the API key
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
-// Get the models
-const geminiProModel = genAI.getGenerativeModel({ model: "gemini-pro" });
-const geminiProVisionModel = genAI.getGenerativeModel({ model: "gemini-pro-vision" });
+// Function to get the model based on model name parameter
+function getGeminiModel(modelName: string = "gemini-pro"): GenerativeModel {
+  return genAI.getGenerativeModel({ model: modelName });
+}
 
 // Default generation config
 const defaultConfig: GenerationConfig = {
@@ -17,9 +18,13 @@ const defaultConfig: GenerationConfig = {
 /**
  * Analyze a resume text using Gemini
  * @param resumeText The content of the resume to analyze
+ * @param modelName The name of the Gemini model to use
  * @returns Analysis results including skills, experience, education and summary
  */
-export async function analyzeResume(resumeText: string): Promise<{
+export async function analyzeResume(
+  resumeText: string,
+  modelName: string = "gemini-pro"
+): Promise<{
   skills: string[];
   experience: string[];
   education: string[];
@@ -44,7 +49,8 @@ export async function analyzeResume(resumeText: string): Promise<{
   `;
 
   try {
-    const result = await geminiProModel.generateContent({
+    const model = getGeminiModel(modelName);
+    const result = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       generationConfig: {
         ...defaultConfig,
@@ -77,7 +83,8 @@ export async function analyzeResume(resumeText: string): Promise<{
  */
 export async function matchJobSkills(
   resumeSkills: string[],
-  jobDescription: string
+  jobDescription: string,
+  modelName: string = "gemini-pro"
 ): Promise<{
   matchPercentage: number;
   matchedSkills: string[];
@@ -106,7 +113,8 @@ export async function matchJobSkills(
   `;
 
   try {
-    const result = await geminiProModel.generateContent({
+    const model = getGeminiModel(modelName);
+    const result = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       generationConfig: {
         ...defaultConfig,
@@ -140,7 +148,8 @@ export async function matchJobSkills(
 export async function generateCoverLetter(
   resumeText: string,
   jobDescription: string,
-  additionalInfo: string = ""
+  additionalInfo: string = "",
+  modelName: string = "gemini-pro"
 ): Promise<string> {
   const prompt = `
   You are a professional cover letter writer with years of experience.
@@ -162,7 +171,8 @@ export async function generateCoverLetter(
   `;
 
   try {
-    const result = await geminiProModel.generateContent({
+    const model = getGeminiModel(modelName);
+    const result = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       generationConfig: {
         ...defaultConfig,
@@ -184,7 +194,8 @@ export async function generateCoverLetter(
  * @returns AI response to continue the conversation
  */
 export async function chatWithAssistant(
-  messages: { role: string; content: string }[]
+  messages: { role: string; content: string }[],
+  modelName: string = "gemini-pro"
 ): Promise<string> {
   try {
     // Format messages for Gemini
@@ -194,7 +205,8 @@ export async function chatWithAssistant(
     }));
 
     // Create a chat session
-    const chat = geminiProModel.startChat({
+    const model = getGeminiModel(modelName);
+    const chat = model.startChat({
       generationConfig: {
         ...defaultConfig,
         maxOutputTokens: 800,
@@ -221,7 +233,8 @@ export async function chatWithAssistant(
  */
 export async function suggestResumeImprovements(
   resumeText: string,
-  targetJob: string = ""
+  targetJob: string = "",
+  modelName: string = "gemini-pro"
 ): Promise<string[]> {
   const prompt = `
   You are an expert resume coach with years of experience helping job seekers improve their resumes.
@@ -244,7 +257,8 @@ export async function suggestResumeImprovements(
   `;
 
   try {
-    const result = await geminiProModel.generateContent({
+    const model = getGeminiModel(modelName);
+    const result = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       generationConfig: {
         ...defaultConfig,

@@ -1,4 +1,4 @@
-import { config, LLMProvider } from "./config";
+import { config, LLMProvider, ProviderConfig } from "./config";
 import * as openaiService from "./openai";
 import * as geminiService from "./gemini";
 import { ChatMessage } from "../client/src/types";
@@ -21,6 +21,32 @@ export function setProvider(provider: LLMProvider): boolean {
 }
 
 /**
+ * Set the model for a specific provider
+ * @param provider The provider to set the model for
+ * @param model The model name
+ * @returns Boolean indicating if the change was successful
+ */
+export function setProviderModel(provider: LLMProvider, model: string): boolean {
+  const providerConfig = config.providers[provider];
+  
+  if (!providerConfig.available || !providerConfig.models.includes(model)) {
+    return false;
+  }
+  
+  providerConfig.currentModel = model;
+  return true;
+}
+
+/**
+ * Get the current model for a provider
+ * @param provider The provider to get the model for
+ * @returns The current model name
+ */
+export function getProviderModel(provider: LLMProvider): string {
+  return config.providers[provider].currentModel;
+}
+
+/**
  * Get the current LLM provider
  * @returns The current provider name
  */
@@ -35,9 +61,11 @@ export function getCurrentProvider(): LLMProvider {
  */
 export async function analyzeResume(resumeText: string) {
   try {
+    const model = config.providers[currentProvider].currentModel;
+    
     return currentProvider === "openai" 
-      ? await openaiService.analyzeResume(resumeText)
-      : await geminiService.analyzeResume(resumeText);
+      ? await openaiService.analyzeResume(resumeText, model)
+      : await geminiService.analyzeResume(resumeText, model);
   } catch (error) {
     console.error(`Error in ${currentProvider} analyzeResume:`, error);
     throw error;
@@ -52,9 +80,11 @@ export async function analyzeResume(resumeText: string) {
  */
 export async function matchJobSkills(resumeSkills: string[], jobDescription: string) {
   try {
+    const model = config.providers[currentProvider].currentModel;
+    
     return currentProvider === "openai"
-      ? await openaiService.matchJobSkills(resumeSkills, jobDescription)
-      : await geminiService.matchJobSkills(resumeSkills, jobDescription);
+      ? await openaiService.matchJobSkills(resumeSkills, jobDescription, model)
+      : await geminiService.matchJobSkills(resumeSkills, jobDescription, model);
   } catch (error) {
     console.error(`Error in ${currentProvider} matchJobSkills:`, error);
     throw error;
@@ -74,9 +104,11 @@ export async function generateCoverLetter(
   additionalInfo: string = ""
 ) {
   try {
+    const model = config.providers[currentProvider].currentModel;
+    
     return currentProvider === "openai"
-      ? await openaiService.generateCoverLetter(resumeText, jobDescription, additionalInfo)
-      : await geminiService.generateCoverLetter(resumeText, jobDescription, additionalInfo);
+      ? await openaiService.generateCoverLetter(resumeText, jobDescription, additionalInfo, model)
+      : await geminiService.generateCoverLetter(resumeText, jobDescription, additionalInfo, model);
   } catch (error) {
     console.error(`Error in ${currentProvider} generateCoverLetter:`, error);
     throw error;
@@ -91,15 +123,17 @@ export async function generateCoverLetter(
  */
 export async function chatWithAssistant(messages: ChatMessage[], userId?: number) {
   try {
+    const model = config.providers[currentProvider].currentModel;
+    
     if (currentProvider === "openai") {
       // OpenAI requires userId as a number
       if (userId === undefined) {
         throw new Error("User ID is required for OpenAI chat");
       }
-      return await openaiService.chatWithAssistant(messages, userId);
+      return await openaiService.chatWithAssistant(messages, userId, model);
     } else {
       // Gemini doesn't require userId
-      return await geminiService.chatWithAssistant(messages);
+      return await geminiService.chatWithAssistant(messages, model);
     }
   } catch (error) {
     console.error(`Error in ${currentProvider} chatWithAssistant:`, error);
@@ -118,9 +152,11 @@ export async function suggestResumeImprovements(
   targetJob: string = ""
 ) {
   try {
+    const model = config.providers[currentProvider].currentModel;
+    
     return currentProvider === "openai"
-      ? await openaiService.suggestResumeImprovements(resumeText, targetJob)
-      : await geminiService.suggestResumeImprovements(resumeText, targetJob);
+      ? await openaiService.suggestResumeImprovements(resumeText, targetJob, model)
+      : await geminiService.suggestResumeImprovements(resumeText, targetJob, model);
   } catch (error) {
     console.error(`Error in ${currentProvider} suggestResumeImprovements:`, error);
     throw error;
@@ -137,6 +173,16 @@ export function getProvidersInfo() {
     available: Object.entries(config.providers)
       .filter(([_, data]) => data.available)
       .map(([key]) => key),
-    defaultProvider: config.defaultLLMProvider
+    defaultProvider: config.defaultLLMProvider,
+    providers: {
+      openai: {
+        models: config.providers.openai.models,
+        currentModel: config.providers.openai.currentModel
+      },
+      gemini: {
+        models: config.providers.gemini.models,
+        currentModel: config.providers.gemini.currentModel
+      }
+    }
   };
 }
