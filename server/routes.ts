@@ -224,6 +224,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).send((error as Error).message);
     }
   });
+  
+  // LLM Provider settings
+  app.get("/api/llm-providers", (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) return res.status(401).send("Unauthorized");
+    
+    const providersInfo = llmService.getProvidersInfo();
+    res.json(providersInfo);
+  });
+  
+  app.post("/api/llm-providers/set", (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) return res.status(401).send("Unauthorized");
+    
+    const { provider } = req.body;
+    if (!provider) return res.status(400).send("Provider name is required");
+    
+    const success = llmService.setProvider(provider);
+    if (!success) {
+      return res.status(400).send(`Provider '${provider}' is not available`);
+    }
+    
+    res.json({ provider, success });
+  });
 
   const httpServer = createServer(app);
   return httpServer;

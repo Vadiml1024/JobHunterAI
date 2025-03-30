@@ -3,8 +3,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation } from "@tanstack/react-query";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { apiRequest, queryClient, getQueryFn } from "@/lib/queryClient";
 import Sidebar from "@/components/layout/Sidebar";
 import TopBar from "@/components/layout/TopBar";
 import MobileNav from "@/components/layout/MobileNav";
@@ -57,8 +57,49 @@ export default function ProfilePage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("profile");
+  const [llmProviders, setLlmProviders] = useState<{
+    current: string;
+    available: string[];
+    defaultProvider: string;
+  }>({ current: "", available: [], defaultProvider: "" });
+  const [llmLoading, setLlmLoading] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
+
+  // Load LLM provider info
+  const { data: providersData } = useQuery({
+    queryKey: ["/api/llm-providers"],
+    queryFn: getQueryFn({ on401: "throw" }),
+    onSuccess: (data) => {
+      setLlmProviders(data);
+    },
+    enabled: !!user,
+  });
+
+  // Set LLM provider mutation
+  const setLlmProviderMutation = useMutation({
+    mutationFn: async (provider: string) => {
+      setLlmLoading(true);
+      const res = await apiRequest("POST", "/api/llm-providers/set", { provider });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setLlmLoading(false);
+      setLlmProviders(prev => ({ ...prev, current: data.provider }));
+      toast({
+        title: "LLM Provider Updated",
+        description: `Successfully switched to ${data.provider}`,
+      });
+    },
+    onError: (error: Error) => {
+      setLlmLoading(false);
+      toast({
+        title: "Failed to update LLM Provider",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
 
   // Profile form
   const form = useForm<ProfileFormValues>({
@@ -380,6 +421,54 @@ export default function ProfilePage() {
                         </div>
                       </form>
                     </Form>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader>
+                  <CardTitle>AI Provider Settings</CardTitle>
+                  <CardDescription>
+                    Choose which AI model powers your job search experience
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex flex-col gap-3">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <h4 className="text-sm font-medium">Current AI Provider</h4>
+                          <p className="text-xs text-gray-500">
+                            {llmProviders.current ? (
+                              <>Using <span className="font-medium">{llmProviders.current}</span></>
+                            ) : (
+                              "Loading..."
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <div className="grid gap-2">
+                        <label className="text-sm font-medium">Select AI Provider</label>
+                        <div className="flex flex-col sm:flex-row gap-3">
+                          {llmProviders.available.map((provider) => (
+                            <Button 
+                              key={provider}
+                              onClick={() => setLlmProviderMutation.mutate(provider)}
+                              variant={llmProviders.current === provider ? "default" : "outline"}
+                              disabled={llmLoading || llmProviders.current === provider}
+                              className="flex-1 capitalize"
+                            >
+                              {provider}
+                            </Button>
+                          ))}
+                        </div>
+                        <p className="text-xs text-gray-500 mt-2">
+                          Select your preferred AI provider. This will affect all AI-powered features such as
+                          resume analysis, job matching, cover letter generation, and the chat assistant.
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
