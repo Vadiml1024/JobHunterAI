@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Search, MapPin, X, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,23 +26,43 @@ export default function JobSearch({ onSearch }: { onSearch: (filters: any) => vo
   const [activeFilters, setActiveFilters] = useState<Filter[]>([]);
   
   // Get job sources from API
-  const { data: jobSources = [], refetch } = useQuery<JobSource[]>({
-    queryKey: ['/api/job-sources'],
-    refetchOnWindowFocus: true,
-    staleTime: 0
+  const { data, refetch, isLoading } = useQuery({
+    queryKey: ['/api/job-sources']
   });
+  
+  // Force type the data as JobSource[] and provide a default empty array
+  const jobSources: JobSource[] = data || [];
 
   // Log job sources for debugging
   useEffect(() => {
     console.log("Job sources loaded:", jobSources);
   }, [jobSources]);
 
-  // Set first source as default when sources are loaded
+  // Set up initial sources when they're loaded
   useEffect(() => {
-    if (jobSources.length > 0 && selectedSources.length === 0) {
-      setSelectedSources([jobSources[0].id]);
+    // Add debug logging to track job source changes
+    console.log("Job sources updated:", jobSources);
+    
+    // Only execute if we have job sources and no selected sources yet
+    if (jobSources && jobSources.length > 0) {
+      // Ensure user has at least one source selected by default
+      if (selectedSources.length === 0) {
+        console.log("Setting default sources:", [jobSources[0].id]);
+        setSelectedSources([jobSources[0].id]);
+      } else {
+        // Make sure we don't lose selected sources
+        const validSources = selectedSources.filter(sourceId => 
+          jobSources.some(source => source.id === sourceId)
+        );
+        
+        // If we've lost valid sources, reset the selection
+        if (validSources.length === 0 && jobSources.length > 0) {
+          console.log("Restoring default sources:", [jobSources[0].id]);
+          setSelectedSources([jobSources[0].id]);
+        }
+      }
     }
-  }, [jobSources]);
+  }, [jobSources, selectedSources]);
   
   const handleSearch = () => {
     // Don't search without at least one source
@@ -173,7 +193,13 @@ export default function JobSearch({ onSearch }: { onSearch: (filters: any) => vo
                 </button>
               </div>
               <div className="flex flex-wrap gap-2 mt-1">
-                {jobSources && jobSources.length > 0 ? (
+                {isLoading ? (
+                  <div className="text-sm text-gray-500 py-1 w-full">
+                    <span className="inline-block mr-2 animate-spin">⟳</span>
+                    Loading job boards...
+                  </div>
+                ) : jobSources && jobSources.length > 0 ? (
+                  // Ensure we have a stable render with a memo to preserve job sources
                   jobSources.map((source, index) => (
                     <Badge 
                       key={`job-source-${source.id}-${index}`}
@@ -191,8 +217,15 @@ export default function JobSearch({ onSearch }: { onSearch: (filters: any) => vo
                     </Badge>
                   ))
                 ) : (
-                  <div className="text-sm text-gray-500 py-1">
-                    Loading job boards...
+                  <div className="text-sm text-gray-500 py-1 w-full flex items-center">
+                    <span className="inline-block mr-2">⚠️</span>
+                    No job boards found. 
+                    <button 
+                      onClick={() => refetch()} 
+                      className="ml-2 text-blue-600 hover:text-blue-800 underline"
+                    >
+                      Try again
+                    </button>
                   </div>
                 )}
               </div>
