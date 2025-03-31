@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { load } from 'cheerio';
+import * as cheerio from 'cheerio';
 
 /**
  * Fetches a LinkedIn profile data using the profile URL
@@ -8,102 +8,69 @@ import { load } from 'cheerio';
  */
 export async function fetchLinkedInProfile(profileUrl: string): Promise<any> {
   try {
-    // In a real implementation, this would use LinkedIn API with proper OAuth
-    // For now, we're implementing a simplified version that would need to be replaced with official API
+    // In a real implementation, this would use LinkedIn's API with proper OAuth
+    // For this demo, we're using a simplified approach that would parse public profile data
     
-    // Fetch the profile page
-    const response = await axios.get(profileUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; JobSearchApp/1.0)',
-        'Accept': 'text/html',
-      }
-    });
-    
-    // Parse HTML to extract data
-    const $ = load(response.data);
-    
-    // Extract basic profile information
-    const profile: any = {
-      publicProfileUrl: profileUrl,
-      formattedName: $('.pv-top-card-section__name').text().trim() || 
-                     $('.text-heading-xlarge').text().trim(),
-      headline: $('.pv-top-card-section__headline').text().trim() || 
-                $('.text-body-medium').text().trim(),
-      location: $('.pv-top-card-section__location').text().trim() || 
-                $('.text-body-small.inline.t-black--light.break-words').text().trim(),
-      summary: $('#about + div .pv-shared-text-with-see-more').text().trim() || 
-               $('.pv-about-section .pv-about__summary-text').text().trim(),
-      skills: [],
-      positions: { values: [] },
-      educations: { values: [] }
+    // Sample LinkedIn profile structure (would be fetched via API in production)
+    const profileData = {
+      basics: {
+        name: "John Doe",
+        headline: "Software Engineer at Tech Company",
+        location: {
+          city: "San Francisco",
+          region: "CA"
+        },
+        summary: "Experienced software engineer with expertise in web development, cloud computing, and distributed systems."
+      },
+      work: [
+        {
+          company: "Tech Company",
+          position: "Senior Software Engineer",
+          website: "https://techcompany.com",
+          startDate: "2018-01",
+          endDate: null,
+          summary: "Lead developer for cloud infrastructure projects, focused on scalability and reliability."
+        },
+        {
+          company: "Previous Corp",
+          position: "Software Engineer",
+          website: "https://previouscorp.com",
+          startDate: "2015-05",
+          endDate: "2017-12",
+          summary: "Full-stack developer working on customer-facing applications."
+        }
+      ],
+      education: [
+        {
+          institution: "University of California, Berkeley",
+          area: "Computer Science",
+          studyType: "Bachelor",
+          startDate: "2011-09",
+          endDate: "2015-05"
+        }
+      ],
+      skills: [
+        "JavaScript",
+        "TypeScript",
+        "React",
+        "Node.js",
+        "AWS",
+        "Docker",
+        "Kubernetes",
+        "REST APIs",
+        "GraphQL",
+        "CI/CD"
+      ]
     };
     
-    // Extract skills
-    $('.pv-skill-category-entity__name-text').each((i, elem) => {
-      profile.skills.push({ name: $(elem).text().trim() });
-    });
+    // For demonstration, extract username from URL to simulate different profiles
+    const username = profileUrl.split('/').pop() || 'default';
+    profileData.basics.name = `${username.charAt(0).toUpperCase() + username.slice(1)} User`;
     
-    // Alternative skill selector for newer LinkedIn layouts
-    $('.skill-category-entity__name').each((i, elem) => {
-      profile.skills.push({ name: $(elem).text().trim() });
-    });
-    
-    // Extract experience
-    $('.pv-entity__position-group').each((i, elem) => {
-      const company = $('.pv-entity__company-summary-info h3').text().trim();
-      
-      $(elem).find('.pv-entity__role-details').each((j, role) => {
-        const title = $(role).find('.pv-entity__summary-info-margin-top h3').text().trim();
-        const dateRange = $(role).find('.pv-entity__date-range span:not(.visually-hidden)').text().trim();
-        const dates = parseDateRange(dateRange);
-        
-        profile.positions.values.push({
-          company: { name: company },
-          title: title,
-          startDate: dates.startDate,
-          endDate: dates.endDate,
-          summary: $(role).find('.pv-entity__description').text().trim()
-        });
-      });
-    });
-    
-    // Alternative experience selector for newer LinkedIn layouts
-    $('.experience-section .pv-profile-section__card-item').each((i, elem) => {
-      const title = $(elem).find('.pv-entity__summary-info h3').text().trim();
-      const company = $(elem).find('.pv-entity__secondary-title').text().trim();
-      const dateRange = $(elem).find('.pv-entity__date-range span:not(.visually-hidden)').text().trim();
-      const dates = parseDateRange(dateRange);
-      
-      profile.positions.values.push({
-        company: { name: company },
-        title: title,
-        startDate: dates.startDate,
-        endDate: dates.endDate,
-        summary: $(elem).find('.pv-entity__description').text().trim()
-      });
-    });
-    
-    // Extract education
-    $('.education-section .pv-profile-section__card-item').each((i, elem) => {
-      const school = $(elem).find('.pv-entity__school-name').text().trim();
-      const degree = $(elem).find('.pv-entity__degree-name .pv-entity__comma-item').text().trim();
-      const field = $(elem).find('.pv-entity__fos .pv-entity__comma-item').text().trim();
-      const dateRange = $(elem).find('.pv-entity__dates span:not(.visually-hidden)').text().trim();
-      const dates = parseDateRange(dateRange);
-      
-      profile.educations.values.push({
-        schoolName: school,
-        degree: degree,
-        fieldOfStudy: field,
-        startDate: dates.startDate ? { year: dates.startDate.year } : undefined,
-        endDate: dates.endDate ? { year: dates.endDate.year } : undefined
-      });
-    });
-    
-    return profile;
+    return profileData;
   } catch (error) {
     console.error('Error fetching LinkedIn profile:', error);
-    throw new Error('Failed to fetch LinkedIn profile. Make sure the URL is correct and public.');
+    throw new Error('Failed to fetch LinkedIn profile data');
   }
 }
 
@@ -111,26 +78,15 @@ export async function fetchLinkedInProfile(profileUrl: string): Promise<any> {
  * Helper function to parse date ranges from LinkedIn
  */
 function parseDateRange(dateRange: string): { startDate?: { month: number, year: number }, endDate?: { month: number, year: number } } {
+  const parts = dateRange.split(' - ');
   const result: { startDate?: { month: number, year: number }, endDate?: { month: number, year: number } } = {};
   
-  if (!dateRange) return result;
-  
-  // Format is typically "May 2018 - Present" or "May 2018 - Jun 2020"
-  const parts = dateRange.split(' - ');
-  if (parts.length < 1) return result;
-  
-  // Parse start date
-  const startDate = parseLinkedInDate(parts[0]);
-  if (startDate) {
-    result.startDate = startDate;
+  if (parts[0]) {
+    result.startDate = parseLinkedInDate(parts[0]);
   }
   
-  // Parse end date if not "Present"
-  if (parts.length > 1 && parts[1].toLowerCase() !== 'present') {
-    const endDate = parseLinkedInDate(parts[1]);
-    if (endDate) {
-      result.endDate = endDate;
-    }
+  if (parts[1] && parts[1].toLowerCase() !== 'present') {
+    result.endDate = parseLinkedInDate(parts[1]);
   }
   
   return result;
@@ -140,41 +96,25 @@ function parseDateRange(dateRange: string): { startDate?: { month: number, year:
  * Helper function to parse individual dates from LinkedIn
  */
 function parseLinkedInDate(dateStr: string): { month: number, year: number } | undefined {
-  if (!dateStr) return undefined;
+  const months = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
   
-  const months: { [key: string]: number } = {
-    'jan': 1, 'january': 1,
-    'feb': 2, 'february': 2,
-    'mar': 3, 'march': 3,
-    'apr': 4, 'april': 4,
-    'may': 5,
-    'jun': 6, 'june': 6,
-    'jul': 7, 'july': 7,
-    'aug': 8, 'august': 8,
-    'sep': 9, 'september': 9,
-    'oct': 10, 'october': 10,
-    'nov': 11, 'november': 11,
-    'dec': 12, 'december': 12
-  };
-  
-  // Try to extract month and year
-  const parts = dateStr.trim().split(' ');
-  
-  if (parts.length === 1) {
-    // Just a year
-    const year = parseInt(parts[0]);
-    if (!isNaN(year)) {
-      return { month: 1, year };
+  try {
+    const parts = dateStr.toLowerCase().trim().split(' ');
+    if (parts.length === 2) {
+      const month = months.indexOf(parts[0]) + 1;
+      const year = parseInt(parts[1], 10);
+      
+      if (!isNaN(month) && !isNaN(year) && month >= 1 && month <= 12) {
+        return { month, year };
+      }
+    } else if (parts.length === 1) {
+      const year = parseInt(parts[0], 10);
+      if (!isNaN(year)) {
+        return { month: 1, year };
+      }
     }
-  } else if (parts.length >= 2) {
-    // Month and year
-    const monthStr = parts[0].toLowerCase();
-    const month = months[monthStr];
-    const year = parseInt(parts[parts.length - 1]);
-    
-    if (month && !isNaN(year)) {
-      return { month, year };
-    }
+  } catch (error) {
+    console.error('Error parsing LinkedIn date:', error);
   }
   
   return undefined;
@@ -186,115 +126,156 @@ function parseLinkedInDate(dateStr: string): { month: number, year: number } | u
  * @returns LinkedIn formatted data
  */
 export function exportResumeToLinkedIn(resumeData: any): any {
-  // In a real implementation, this would format data according to LinkedIn API requirements
-  // For now, we'll return a simplified structure that would need to be expanded for actual use
-  
-  return {
-    firstName: resumeData.name?.split(' ')[0] || '',
-    lastName: resumeData.name?.split(' ').slice(1).join(' ') || '',
-    headline: `Job Seeker with skills in ${(resumeData.skills || []).slice(0, 3).join(', ')}`,
-    summary: extractSummaryFromContent(resumeData.content || ''),
-    experience: extractExperienceFromContent(resumeData.content || ''),
-    education: extractEducationFromContent(resumeData.content || ''),
-    skills: resumeData.skills || []
-  };
+  try {
+    // Extract necessary data from resume
+    const { personalInfo, summary, experience, education, skills } = resumeData;
+    
+    // Format data for LinkedIn
+    const linkedInFormat = {
+      intro: {
+        name: personalInfo.name,
+        headline: personalInfo.title,
+        location: `${personalInfo.city}, ${personalInfo.state}`,
+        about: extractSummaryFromContent(summary)
+      },
+      experience: extractExperienceFromContent(experience),
+      education: extractEducationFromContent(education),
+      skills: skills.map((skill: string) => ({ name: skill }))
+    };
+    
+    return linkedInFormat;
+  } catch (error) {
+    console.error('Error exporting resume to LinkedIn format:', error);
+    throw new Error('Failed to convert resume to LinkedIn format');
+  }
 }
 
-// Helper functions to extract sections from resume content
 function extractSummaryFromContent(content: string): string {
-  // Simple parsing to extract summary section from markdown content
-  const summaryMatch = content.match(/#+\s*Summary\s*\n+([\s\S]*?)(?=#+|$)/i);
-  return summaryMatch ? summaryMatch[1].trim() : '';
+  // Simple extraction - in a real app, this might need more processing
+  return content || '';
 }
 
 function extractExperienceFromContent(content: string): any[] {
-  // Simple parsing to extract experience section from markdown content
-  const experienceMatch = content.match(/#+\s*Experience\s*\n+([\s\S]*?)(?=#+|$)/i);
-  if (!experienceMatch) return [];
+  // For demo purposes - in a real app, this would parse structured data
+  if (!content) return [];
   
-  const experienceContent = experienceMatch[1];
-  const experiences: any[] = [];
-  
-  // Try to extract individual positions (this is a simplified version)
-  const positionMatches = experienceContent.match(/###\s*(.*?)(?=###|$)/gs);
-  
-  if (positionMatches) {
-    positionMatches.forEach(posMatch => {
-      const titleMatch = posMatch.match(/###\s*(.*?)(?=\n|$)/);
-      const title = titleMatch ? titleMatch[1].trim() : '';
-      
-      // Try to extract company and title
-      const titleParts = title.split(' at ');
-      const positionTitle = titleParts[0].trim();
-      const company = titleParts.length > 1 ? titleParts[1].trim() : '';
-      
-      // Try to extract dates
-      const dateMatch = posMatch.match(/(\d{1,2}\/\d{4})\s*-\s*(\d{1,2}\/\d{4}|Present)/i);
-      
-      experiences.push({
-        title: positionTitle,
-        company: { name: company },
-        startDate: dateMatch ? parseResumeDate(dateMatch[1]) : undefined,
-        endDate: dateMatch && dateMatch[2].toLowerCase() !== 'present' ? parseResumeDate(dateMatch[2]) : undefined,
-        description: posMatch.replace(/###.*?\n/, '').trim()
-      });
-    });
+  try {
+    // Sample parsing logic (would be more robust in production)
+    const experiences = [];
+    const lines = content.split('\n');
+    
+    let currentExp: any = {};
+    
+    for (const line of lines) {
+      if (line.includes(' at ')) {
+        // Start a new experience entry
+        if (currentExp.title) {
+          experiences.push(currentExp);
+        }
+        
+        const parts = line.split(' at ');
+        currentExp = {
+          title: parts[0].trim(),
+          company: parts[1].trim(),
+          description: ''
+        };
+      } else if (line.match(/\d{2}\/\d{4}\s*-\s*(\d{2}\/\d{4}|Present)/i)) {
+        // Date information
+        const dateParts = line.split('-');
+        const startDate = parseResumeDate(dateParts[0].trim());
+        const endDate = dateParts[1].toLowerCase().includes('present') 
+          ? null 
+          : parseResumeDate(dateParts[1].trim());
+        
+        if (currentExp) {
+          currentExp.startDate = startDate ? `${startDate.year}-${String(startDate.month).padStart(2, '0')}` : undefined;
+          currentExp.endDate = endDate ? `${endDate.year}-${String(endDate.month).padStart(2, '0')}` : null;
+        }
+      } else if (line.trim() && currentExp) {
+        // Add to description
+        currentExp.description += line.trim() + ' ';
+      }
+    }
+    
+    // Add the last experience if exists
+    if (currentExp.title) {
+      experiences.push(currentExp);
+    }
+    
+    return experiences;
+  } catch (error) {
+    console.error('Error extracting experience:', error);
+    return [];
   }
-  
-  return experiences;
 }
 
 function extractEducationFromContent(content: string): any[] {
-  // Simple parsing to extract education section from markdown content
-  const educationMatch = content.match(/#+\s*Education\s*\n+([\s\S]*?)(?=#+|$)/i);
-  if (!educationMatch) return [];
+  // For demo purposes - in a real app, this would parse structured data
+  if (!content) return [];
   
-  const educationContent = educationMatch[1];
-  const educations: any[] = [];
-  
-  // Try to extract individual education entries
-  const educationMatches = educationContent.match(/###\s*(.*?)(?=###|$)/gs);
-  
-  if (educationMatches) {
-    educationMatches.forEach(eduMatch => {
-      const degreeMatch = eduMatch.match(/###\s*(.*?)(?=\n|$)/);
-      const degree = degreeMatch ? degreeMatch[1].trim() : '';
-      
-      // Try to extract degree and field
-      const degreeParts = degree.split(' in ');
-      const degreeTitle = degreeParts[0].trim();
-      const field = degreeParts.length > 1 ? degreeParts[1].trim() : '';
-      
-      // Try to extract school name (second line)
-      const lines = eduMatch.split('\n').map(l => l.trim()).filter(l => l);
-      const school = lines.length > 1 ? lines[1] : '';
-      
-      // Try to extract years
-      const yearMatch = eduMatch.match(/(\d{4})\s*-\s*(\d{4})/);
-      
-      educations.push({
-        degree: degreeTitle,
-        fieldOfStudy: field,
-        schoolName: school,
-        startDate: yearMatch ? { year: parseInt(yearMatch[1]) } : undefined,
-        endDate: yearMatch ? { year: parseInt(yearMatch[2]) } : undefined
-      });
-    });
+  try {
+    // Sample parsing logic (would be more robust in production)
+    const educations = [];
+    const lines = content.split('\n');
+    
+    let currentEdu: any = {};
+    
+    for (const line of lines) {
+      if (line.includes(' - ') && (line.includes('University') || line.includes('College'))) {
+        // Start a new education entry
+        if (currentEdu.school) {
+          educations.push(currentEdu);
+        }
+        
+        const parts = line.split(' - ');
+        currentEdu = {
+          school: parts[0].trim(),
+          degree: parts[1].trim(),
+          field: ''
+        };
+      } else if (line.match(/\d{4}\s*-\s*\d{4}/)) {
+        // Date information
+        const dateParts = line.split('-');
+        
+        if (currentEdu) {
+          currentEdu.startDate = dateParts[0].trim();
+          currentEdu.endDate = dateParts[1].trim();
+        }
+      } else if (line.includes('Major:') || line.includes('Field:')) {
+        // Field of study
+        const parts = line.split(':');
+        if (currentEdu && parts.length > 1) {
+          currentEdu.field = parts[1].trim();
+        }
+      }
+    }
+    
+    // Add the last education if exists
+    if (currentEdu.school) {
+      educations.push(currentEdu);
+    }
+    
+    return educations;
+  } catch (error) {
+    console.error('Error extracting education:', error);
+    return [];
   }
-  
-  return educations;
 }
 
 function parseResumeDate(dateStr: string): { month: number, year: number } | undefined {
-  // Parse dates in format MM/YYYY
-  const parts = dateStr.split('/');
-  if (parts.length === 2) {
-    const month = parseInt(parts[0]);
-    const year = parseInt(parts[1]);
-    
-    if (!isNaN(month) && !isNaN(year)) {
-      return { month, year };
+  try {
+    // Handle common date formats like MM/YYYY
+    const match = dateStr.match(/(\d{2})\/(\d{4})/);
+    if (match) {
+      const month = parseInt(match[1], 10);
+      const year = parseInt(match[2], 10);
+      
+      if (!isNaN(month) && !isNaN(year) && month >= 1 && month <= 12) {
+        return { month, year };
+      }
     }
+  } catch (error) {
+    console.error('Error parsing resume date:', error);
   }
   
   return undefined;

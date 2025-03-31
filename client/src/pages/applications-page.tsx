@@ -4,23 +4,27 @@ import Sidebar from "@/components/layout/Sidebar";
 import TopBar from "@/components/layout/TopBar";
 import MobileNav from "@/components/layout/MobileNav";
 import ChatAssistant from "@/components/layout/ChatAssistant";
+import { ApplicationDetail } from "@/components/applications/ApplicationDetail";
 import { Application, Job, Resume, ApplicationStatus as AppStatus } from "@/types";
 import { 
   Card, 
   CardContent, 
   CardHeader, 
-  CardTitle 
+  CardTitle,
+  CardDescription
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ChevronRight, Building, Calendar, FileText, Info, ExternalLink } from "lucide-react";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { ChevronRight, Building, Calendar, FileText, Info, ExternalLink, X } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 export default function ApplicationsPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<AppStatus | 'all'>('all');
+  const [selectedApplicationId, setSelectedApplicationId] = useState<number | null>(null);
+  const [applicationDetailOpen, setApplicationDetailOpen] = useState(false);
 
   const { data: applications, isLoading: isLoadingApplications } = useQuery<Application[]>({
     queryKey: ["/api/applications"],
@@ -196,7 +200,14 @@ export default function ApplicationsPage() {
                               </div>
                             </div>
                           </div>
-                          <Button variant="ghost" size="icon">
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            onClick={() => {
+                              setSelectedApplicationId(app.id);
+                              setApplicationDetailOpen(true);
+                            }}
+                          >
                             <ChevronRight className="h-5 w-5" />
                           </Button>
                         </div>
@@ -208,6 +219,27 @@ export default function ApplicationsPage() {
             </CardContent>
           </Card>
         </main>
+
+        {/* Application Detail Dialog */}
+        <Dialog 
+          open={applicationDetailOpen} 
+          onOpenChange={setApplicationDetailOpen}
+        >
+          <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
+            <div className="absolute right-4 top-4">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setApplicationDetailOpen(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            {selectedApplicationId && (
+              <ApplicationDetail applicationId={selectedApplicationId} />
+            )}
+          </DialogContent>
+        </Dialog>
 
         {/* Chat Assistant */}
         <ChatAssistant 

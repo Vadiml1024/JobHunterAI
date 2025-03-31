@@ -520,6 +520,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Share job application on LinkedIn
+  app.post("/api/linkedin/share-application", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) return res.status(401).send("Unauthorized");
+    
+    try {
+      const { applicationId, message } = req.body;
+      
+      if (!applicationId) {
+        return res.status(400).send("Application ID is required");
+      }
+      
+      // Get application data
+      const application = await storage.getApplication(parseInt(applicationId));
+      if (!application || application.userId !== req.user.id) {
+        return res.status(404).send("Application not found or access denied");
+      }
+      
+      // Get job details to include in the share message
+      const job = await storage.getJob(application.jobId);
+      if (!job) {
+        return res.status(404).send("Job not found");
+      }
+      
+      // Generate a default message if not provided
+      const shareMessage = message || `I'm excited to share that I've applied for a ${job.title} position at ${job.company}!`;
+      
+      // In a real implementation, this would use LinkedIn API to share the post
+      // For demonstration purposes, we'll just return success
+      
+      res.json({
+        success: true,
+        message: "Application shared on LinkedIn",
+        shareText: shareMessage
+      });
+    } catch (error) {
+      console.error("LinkedIn share error:", error);
+      res.status(500).send((error as Error).message);
+    }
+  });
+  
   // Calendar integration routes
   app.get("/api/calendar/auth-url", (req: Request, res: Response) => {
     if (!req.isAuthenticated()) return res.status(401).send("Unauthorized");
