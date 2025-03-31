@@ -1057,6 +1057,7 @@ export function convertToInsertJob(listing: JobListing | JobDetails): InsertJob 
     skills: 'skills' in listing ? listing.skills : undefined,
     source: listing.source,
     remoteOption: listing.remoteOption,
-    postedAt: listing.datePosted
+    postedAt: listing.datePosted,
+    url: listing.url
   };
 }

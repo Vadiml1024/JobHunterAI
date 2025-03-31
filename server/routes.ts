@@ -739,11 +739,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Search for jobs
           const searchResult = await connector.searchJobs(query);
           
-          // Convert to internal format and add source information
+          // Convert to internal format and add source information with unique IDs
           const jobs = searchResult.jobs.map(job => {
             const convertedJob = convertToInsertJob(job);
-            convertedJob.source = source.name; // Make sure source is properly attributed
-            return convertedJob;
+            // Add source identifier to job ID
+            const jobId = job.id;
+            // Create a unique ID by combining the original ID with the source name
+            const uniqueId = `${jobId}-${source.name}`;
+            // Return job with source attribution and unique ID
+            return {
+              ...convertedJob,
+              id: uniqueId, 
+              source: source.name
+            };
           });
           
           return {
@@ -879,8 +887,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).send("Job not found");
       }
       
-      // Convert to internal format
-      const job = convertToInsertJob(jobDetails);
+      // Convert to internal format and add ID
+      const job = {
+        ...convertToInsertJob(jobDetails),
+        id: `${jobId}-${source.name}`,
+        source: source.name
+      };
       
       res.json({
         success: true,

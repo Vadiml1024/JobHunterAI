@@ -164,7 +164,8 @@ export default function JobList({ filters }: JobListProps) {
             ))
           ) : (
             paginatedJobs?.map((job: Job) => (
-              <li key={job.id} className="px-4 py-4 sm:px-6 hover:bg-gray-50 cursor-pointer">
+              <li key={`${job.id}-${job.source}`} className="px-4 py-4 sm:px-6 hover:bg-gray-50 cursor-pointer" 
+                  onClick={() => window.open(job.url, '_blank')}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
@@ -196,7 +197,7 @@ export default function JobList({ filters }: JobListProps) {
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {job.skills?.map((skill: string, index: number) => (
-                    <Badge key={index} variant="secondary" className="bg-gray-100 text-gray-800">
+                    <Badge key={`${job.id}-${skill}-${index}`} variant="secondary" className="bg-gray-100 text-gray-800">
                       {skill}
                     </Badge>
                   ))}
@@ -204,6 +205,16 @@ export default function JobList({ filters }: JobListProps) {
                 <div className="mt-3 flex items-center text-sm text-gray-500">
                   <DollarSign className="mr-1.5 h-4 w-4 text-gray-400" />
                   {job.salary}
+                  <Button 
+                    variant="link" 
+                    className="ml-auto text-primary-600" 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      window.open(job.url, '_blank');
+                    }}
+                  >
+                    View Job
+                  </Button>
                 </div>
               </li>
             ))

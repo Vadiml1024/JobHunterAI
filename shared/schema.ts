@@ -57,7 +57,8 @@ export const jobs = pgTable("jobs", {
   source: text("source"),
   remoteOption: text("remote_option"),
   matchScore: integer("match_score"),
-  postedAt: timestamp("posted_at").defaultNow()
+  postedAt: timestamp("posted_at").defaultNow(),
+  url: text("url")
 });
 
 export const insertJobSchema = createInsertSchema(jobs).omit({

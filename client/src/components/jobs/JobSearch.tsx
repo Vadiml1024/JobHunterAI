@@ -36,7 +36,7 @@ export default function JobSearch({ onSearch }: { onSearch: (filters: any) => vo
     if (jobSources.length > 0 && selectedSources.length === 0) {
       setSelectedSources([jobSources[0].id]);
     }
-  }, [jobSources, selectedSources]);
+  }, [jobSources]);
   
   const handleSearch = () => {
     // Don't search without at least one source

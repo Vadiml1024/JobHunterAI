@@ -20,7 +20,7 @@ export interface Resume {
 }
 
 export interface Job {
-  id: number;
+  id: number | string;
   title: string;
   company: string;
   location?: string;
@@ -32,6 +32,7 @@ export interface Job {
   remoteOption?: string;
   matchScore?: number;
   postedAt: Date;
+  url?: string;
 }
 
 export interface Application {
