@@ -124,22 +124,21 @@ export default function JobSearch({ onSearch }: { onSearch: (filters: any) => vo
     }
   };
 
-  // Helper to render static job boards
+  // Helper to render job boards
   const renderJobBoards = () => {
-    // Hardcoded job board names
+    // Fallback job board names
     const jobBoardNames = ["LinkedIn", "Indeed", "Glassdoor"];
     
     return (
       <>
         {jobSources.map((source, index) => (
-          <React.Fragment key={`job-source-${source.id}`}>
-            <JobBoard
-              name={source.name || jobBoardNames[index] || `Job Source ${index + 1}`}
-              id={source.id}
-              isSelected={selectedSources.includes(source.id)}
-              onToggle={handleSourceToggle}
-            />
-          </React.Fragment>
+          <JobBoard
+            key={`job-source-${source.id}`}
+            name={source.name || jobBoardNames[index] || `Job Source ${index + 1}`}
+            id={source.id}
+            isSelected={selectedSources.includes(source.id)}
+            onToggle={handleSourceToggle}
+          />
         ))}
       </>
     );
