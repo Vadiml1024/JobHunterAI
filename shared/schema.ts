@@ -30,7 +30,10 @@ export const resumes = pgTable("resumes", {
   language: text("language").notNull(),
   content: text("content"),
   fileUrl: text("file_url"),
-  skills: jsonb("skills"),
+  skills: jsonb("skills").default({}),
+  summary: text("summary"),
+  experience: text("experience"),
+  education: text("education"),
   matchScore: integer("match_score"),
   updatedAt: timestamp("updated_at").defaultNow()
 });
@@ -42,6 +45,9 @@ export const insertResumeSchema = createInsertSchema(resumes).pick({
   content: true,
   fileUrl: true,
   skills: true,
+  summary: true,
+  experience: true,
+  education: true,
   matchScore: true
 });
 

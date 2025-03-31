@@ -290,15 +290,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).send("Failed to extract skills from resume");
       }
       
-      // Update resume with extracted skills
-      const updatedResume = await storage.updateResume(resumeId, {
-        skills: analysis.skills
-      });
+      // Update resume with extracted information
+      const updateData: any = {
+        skills: analysis.skills || []
+      };
+      
+      // Add additional fields if available
+      if (analysis.summary) updateData.summary = analysis.summary;
+      if (analysis.experience) updateData.experience = analysis.experience;
+      if (analysis.education) updateData.education = analysis.education;
+      
+      const updatedResume = await storage.updateResume(resumeId, updateData);
       
       res.json({
         success: true,
         resume: updatedResume,
-        skills: analysis.skills
+        skills: analysis.skills,
+        analysis
       });
     } catch (error) {
       console.error("Resume analysis error:", error);

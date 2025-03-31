@@ -75,7 +75,8 @@ export default function ResumeList() {
     analyzeMutation.mutate(id);
   };
   
-  const formatDate = (date: Date) => {
+  const formatDate = (date: Date | null) => {
+    if (!date) return 'Unknown date';
     return formatDistanceToNow(new Date(date), { addSuffix: true });
   };
   
@@ -161,7 +162,7 @@ export default function ResumeList() {
                           <Copy className="mr-2 h-4 w-4" />
                           <span>Duplicate</span>
                         </DropdownMenuItem>
-                        {(!resume.skills || resume.skills.length === 0) && (
+                        {(!Array.isArray(resume.skills) || resume.skills.length === 0) && (
                           <DropdownMenuItem 
                             onClick={() => handleAnalyzeResume(resume.id)}
                             disabled={analyzingId === resume.id}
@@ -191,12 +192,12 @@ export default function ResumeList() {
                   </div>
                   
                   <div className="mt-3 flex flex-wrap gap-2">
-                    {resume.skills?.slice(0, 3).map((skill, index) => (
+                    {(Array.isArray(resume.skills) ? resume.skills : []).slice(0, 3).map((skill: string, index: number) => (
                       <Badge key={index} variant="secondary" className="bg-gray-100 text-gray-800">
                         {skill}
                       </Badge>
                     ))}
-                    {resume.skills && resume.skills.length > 3 && (
+                    {Array.isArray(resume.skills) && resume.skills.length > 3 && (
                       <Badge variant="secondary" className="bg-gray-100 text-gray-800">
                         +{resume.skills.length - 3} more
                       </Badge>
@@ -237,7 +238,7 @@ export default function ResumeList() {
 
       {/* Preview Resume Modal */}
       <Dialog open={!!previewResume} onOpenChange={(open) => !open && setPreviewResume(null)}>
-        <DialogContent className="sm:max-w-3xl">
+        <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>Resume Preview: {previewResume?.name}</DialogTitle>
             <DialogDescription>
@@ -246,10 +247,10 @@ export default function ResumeList() {
           </DialogHeader>
           
           {previewResume && (
-            <div className="mt-4 space-y-6">
+            <div className="mt-4 space-y-6 overflow-y-auto pr-2 flex-grow">
               <div>
-                <h3 className="text-lg font-medium">Personal Information</h3>
-                <div className="mt-2 bg-gray-50 p-4 rounded-md">
+                <h3 className="text-lg font-medium text-primary">Personal Information</h3>
+                <div className="mt-2 bg-muted/30 p-4 rounded-md">
                   <p><strong>Name:</strong> {previewResume.name}</p>
                   <p><strong>Language:</strong> {previewResume.language}</p>
                   <p><strong>Last Updated:</strong> {formatDate(previewResume.updatedAt)}</p>
@@ -257,50 +258,85 @@ export default function ResumeList() {
               </div>
               
               <div>
-                <h3 className="text-lg font-medium">Skills</h3>
+                <h3 className="text-lg font-medium text-primary">Skills</h3>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {previewResume.skills?.map((skill, index) => (
+                  {(Array.isArray(previewResume.skills) ? previewResume.skills : []).map((skill: string, index: number) => (
                     <Badge key={index} variant="secondary">
                       {skill}
                     </Badge>
                   ))}
-                  {!previewResume.skills?.length && (
-                    <p className="text-gray-500">No skills found</p>
+                  {(!Array.isArray(previewResume.skills) || previewResume.skills.length === 0) && (
+                    <p className="text-muted-foreground">No skills found</p>
                   )}
                 </div>
               </div>
               
               <div>
-                <h3 className="text-lg font-medium">Resume Content</h3>
-                <div className="mt-2 bg-gray-50 p-4 rounded-md">
+                <h3 className="text-lg font-medium text-primary">Resume Content</h3>
+                <div className="mt-2 bg-muted/30 p-4 rounded-md">
                   {previewResume.content ? (
-                    <div className="whitespace-pre-line">{previewResume.content}</div>
+                    <div className="whitespace-pre-wrap text-sm leading-relaxed max-h-[30vh] overflow-y-auto">
+                      {previewResume.content}
+                    </div>
                   ) : (
-                    <p className="text-gray-500">No resume content available</p>
+                    <p className="text-muted-foreground">No resume content available</p>
                   )}
                 </div>
               </div>
               
-              <div className="flex justify-between">
-                <Button 
-                  variant="outline" 
-                  onClick={() => previewResume.fileUrl ? window.open(previewResume.fileUrl, '_blank') : alert('No file available')}
-                  className="gap-2"
-                  disabled={!previewResume.fileUrl}
-                >
-                  <FileText className="h-4 w-4" />
-                  View Original File
-                </Button>
-                <Button onClick={() => setPreviewResume(null)}>Close</Button>
-              </div>
+              {previewResume.summary && (
+                <div>
+                  <h3 className="text-lg font-medium text-primary">Summary</h3>
+                  <div className="mt-2 bg-muted/30 p-4 rounded-md">
+                    <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                      {previewResume.summary}
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {previewResume.experience && (
+                <div>
+                  <h3 className="text-lg font-medium text-primary">Experience</h3>
+                  <div className="mt-2 bg-muted/30 p-4 rounded-md">
+                    <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                      {previewResume.experience}
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {previewResume.education && (
+                <div>
+                  <h3 className="text-lg font-medium text-primary">Education</h3>
+                  <div className="mt-2 bg-muted/30 p-4 rounded-md">
+                    <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                      {previewResume.education}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
+          
+          <div className="flex justify-between pt-4 mt-4 border-t">
+            <Button 
+              variant="outline" 
+              onClick={() => previewResume?.fileUrl ? window.open(previewResume.fileUrl, '_blank') : alert('No file available')}
+              className="gap-2"
+              disabled={!previewResume?.fileUrl}
+            >
+              <FileText className="h-4 w-4" />
+              View Original File
+            </Button>
+            <Button onClick={() => setPreviewResume(null)}>Close</Button>
+          </div>
         </DialogContent>
       </Dialog>
 
       {/* Edit Resume Modal */}
       <Dialog open={!!editResume} onOpenChange={(open) => !open && setEditResume(null)}>
-        <DialogContent className="sm:max-w-3xl">
+        <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>Edit Resume: {editResume?.name}</DialogTitle>
             <DialogDescription>
@@ -309,7 +345,7 @@ export default function ResumeList() {
           </DialogHeader>
           
           {editResume && (
-            <div className="mt-4">
+            <div className="mt-4 overflow-y-auto pr-2 flex-grow">
               <p className="pb-4">The resume editing feature is coming soon. Here you will be able to:</p>
               <ul className="list-disc pl-5 space-y-2">
                 <li>Edit your resume details</li>
@@ -318,7 +354,7 @@ export default function ResumeList() {
                 <li>Generate optimized versions for specific job applications</li>
               </ul>
               
-              <div className="mt-6 flex justify-end">
+              <div className="mt-6 flex justify-end pt-4 border-t">
                 <Button onClick={() => setEditResume(null)}>Close</Button>
               </div>
             </div>
