@@ -2,11 +2,14 @@ import express, { type Express, type Request, type Response, type NextFunction }
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth } from "./auth";
-import { insertResumeSchema, insertApplicationSchema, insertJobSchema, type Job } from "@shared/schema";
+import { insertResumeSchema, insertApplicationSchema, insertJobSchema, insertJobSourceSchema, type Job } from "@shared/schema";
 import { z } from "zod";
 import * as llmService from "./llm-service";
 import { LLMProvider } from "./config";
 import { upload, extractTextFromFile } from "./upload";
+import { fetchLinkedInProfile, exportResumeToLinkedIn } from "./linkedin";
+import * as calendar from "./calendar";
+import { createJobBoardConnector, convertToInsertJob } from "./jobboards";
 import path from "path";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -457,6 +460,296 @@ export async function registerRoutes(app: Express): Promise<Server> {
       model,
       success 
     });
+  });
+
+  // LinkedIn integration routes
+  app.post("/api/linkedin/import", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) return res.status(401).send("Unauthorized");
+    
+    try {
+      const { profileUrl } = req.body;
+      if (!profileUrl) {
+        return res.status(400).send("LinkedIn profile URL is required");
+      }
+      
+      // Fetch LinkedIn profile data
+      const profileData = await fetchLinkedInProfile(profileUrl);
+      
+      // Save to user profile
+      const updatedUser = await storage.saveLinkedinProfile(req.user.id, profileData);
+      
+      // Create a resume from LinkedIn data
+      const resume = await storage.createResumeFromLinkedin(req.user.id, profileData);
+      
+      res.json({ 
+        success: true, 
+        user: updatedUser,
+        resume
+      });
+    } catch (error) {
+      console.error("LinkedIn import error:", error);
+      res.status(500).send((error as Error).message);
+    }
+  });
+  
+  app.post("/api/linkedin/export", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) return res.status(401).send("Unauthorized");
+    
+    try {
+      const { resumeId } = req.body;
+      if (!resumeId) {
+        return res.status(400).send("Resume ID is required");
+      }
+      
+      // Get resume data
+      const resume = await storage.getResume(parseInt(resumeId));
+      if (!resume || resume.userId !== req.user.id) {
+        return res.status(404).send("Resume not found or access denied");
+      }
+      
+      // Convert resume to LinkedIn format
+      const linkedinData = exportResumeToLinkedIn(resume);
+      
+      res.json({
+        success: true,
+        data: linkedinData
+      });
+    } catch (error) {
+      console.error("LinkedIn export error:", error);
+      res.status(500).send((error as Error).message);
+    }
+  });
+  
+  // Calendar integration routes
+  app.get("/api/calendar/auth-url", (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) return res.status(401).send("Unauthorized");
+    
+    const authUrl = calendar.getGoogleAuthUrl();
+    res.json({ authUrl });
+  });
+  
+  app.post("/api/calendar/authorize", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) return res.status(401).send("Unauthorized");
+    
+    try {
+      const { code } = req.body;
+      if (!code) {
+        return res.status(400).send("Authorization code is required");
+      }
+      
+      // Exchange code for tokens
+      const tokens = await calendar.getGoogleTokens(code);
+      
+      // Save refresh token to user profile
+      if (!tokens.refresh_token) {
+        return res.status(400).send("No refresh token received. Please try again with 'prompt=consent'");
+      }
+      
+      const updatedUser = await storage.updateUser(req.user.id, {
+        calendarIntegration: true,
+        googleRefreshToken: tokens.refresh_token
+      });
+      
+      res.json({
+        success: true,
+        user: updatedUser
+      });
+    } catch (error) {
+      console.error("Calendar authorization error:", error);
+      res.status(500).send((error as Error).message);
+    }
+  });
+  
+  app.post("/api/calendar/sync", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) return res.status(401).send("Unauthorized");
+    
+    try {
+      const { applicationId } = req.body;
+      if (!applicationId) {
+        return res.status(400).send("Application ID is required");
+      }
+      
+      // Sync specific application with calendar
+      const updatedApplication = await storage.syncApplicationWithCalendar(parseInt(applicationId));
+      if (!updatedApplication) {
+        return res.status(404).send("Application not found or calendar sync failed");
+      }
+      
+      res.json({
+        success: true,
+        application: updatedApplication
+      });
+    } catch (error) {
+      console.error("Calendar sync error:", error);
+      res.status(500).send((error as Error).message);
+    }
+  });
+  
+  app.delete("/api/calendar/events/:applicationId", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) return res.status(401).send("Unauthorized");
+    
+    try {
+      const applicationId = parseInt(req.params.applicationId);
+      
+      // Get application to check ownership
+      const application = await storage.getApplication(applicationId);
+      if (!application || application.userId !== req.user.id) {
+        return res.status(404).send("Application not found or access denied");
+      }
+      
+      // Remove calendar event
+      const updatedApplication = await storage.removeCalendarEvent(applicationId);
+      if (!updatedApplication) {
+        return res.status(500).send("Failed to remove calendar event");
+      }
+      
+      res.json({
+        success: true,
+        application: updatedApplication
+      });
+    } catch (error) {
+      console.error("Calendar event deletion error:", error);
+      res.status(500).send((error as Error).message);
+    }
+  });
+  
+  app.get("/api/calendar/export", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) return res.status(401).send("Unauthorized");
+    
+    try {
+      // Get all applications with calendar events
+      const applications = await storage.getApplicationsWithCalendarEvents(req.user.id);
+      
+      // Generate iCalendar file
+      const icalData = calendar.generateICalendar(applications);
+      
+      // Set headers for file download
+      res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+      res.setHeader('Content-Disposition', 'attachment; filename=job_applications.ics');
+      
+      // Send the iCalendar data
+      res.send(icalData);
+    } catch (error) {
+      console.error("iCalendar export error:", error);
+      res.status(500).send((error as Error).message);
+    }
+  });
+  
+  // Job board integration routes
+  app.get("/api/job-sources", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) return res.status(401).send("Unauthorized");
+    
+    try {
+      const jobSources = await storage.getJobSources();
+      res.json(jobSources);
+    } catch (error) {
+      console.error("Job sources error:", error);
+      res.status(500).send((error as Error).message);
+    }
+  });
+  
+  app.post("/api/job-sources", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) return res.status(401).send("Unauthorized");
+    
+    try {
+      // For security, only admin users can add job sources in a real application
+      // in a demo, we'll allow any authenticated user
+      const jobSourceData = insertJobSourceSchema.parse(req.body);
+      const jobSource = await storage.createJobSource(jobSourceData);
+      
+      res.status(201).json(jobSource);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ errors: error.errors });
+      }
+      console.error("Job source creation error:", error);
+      res.status(500).send((error as Error).message);
+    }
+  });
+  
+  app.put("/api/job-sources/:id", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) return res.status(401).send("Unauthorized");
+    
+    try {
+      const sourceId = parseInt(req.params.id);
+      const source = await storage.getJobSource(sourceId);
+      
+      if (!source) {
+        return res.status(404).send("Job source not found");
+      }
+      
+      // Update job source settings
+      const updatedSource = await storage.updateJobSource(sourceId, req.body);
+      
+      res.json(updatedSource);
+    } catch (error) {
+      console.error("Job source update error:", error);
+      res.status(500).send((error as Error).message);
+    }
+  });
+  
+  app.post("/api/job-sources/:id/sync", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) return res.status(401).send("Unauthorized");
+    
+    try {
+      const sourceId = parseInt(req.params.id);
+      const source = await storage.getJobSource(sourceId);
+      
+      if (!source) {
+        return res.status(404).send("Job source not found");
+      }
+      
+      // Sync jobs from this source
+      const jobs = await storage.syncJobsFromSource(sourceId);
+      
+      res.json({
+        success: true,
+        jobCount: jobs.length,
+        jobs
+      });
+    } catch (error) {
+      console.error("Job source sync error:", error);
+      res.status(500).send((error as Error).message);
+    }
+  });
+  
+  app.post("/api/job-sources/search", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) return res.status(401).send("Unauthorized");
+    
+    try {
+      const { sourceId, query } = req.body;
+      
+      if (!sourceId || !query) {
+        return res.status(400).send("Source ID and search query are required");
+      }
+      
+      // Get the job source
+      const source = await storage.getJobSource(parseInt(sourceId));
+      if (!source) {
+        return res.status(404).send("Job source not found");
+      }
+      
+      // Create connector for the job board
+      const connector = createJobBoardConnector(source.name, source.apiKey || '');
+      
+      // Search for jobs
+      const searchResult = await connector.searchJobs(query);
+      
+      // Convert to internal format
+      const jobs = searchResult.jobs.map(job => convertToInsertJob(job));
+      
+      res.json({
+        success: true,
+        query,
+        totalJobs: searchResult.totalJobs,
+        pageCount: searchResult.pageCount,
+        currentPage: searchResult.currentPage,
+        jobs
+      });
+    } catch (error) {
+      console.error("Job search error:", error);
+      res.status(500).send((error as Error).message);
+    }
   });
 
   const httpServer = createServer(app);

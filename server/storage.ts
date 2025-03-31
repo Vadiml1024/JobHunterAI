@@ -1,8 +1,11 @@
-import { users, type User, type InsertUser, resumes, type Resume, type InsertResume, jobs, type Job, type InsertJob, applications, type Application, type InsertApplication } from "@shared/schema";
+import { users, type User, type InsertUser, resumes, type Resume, type InsertResume, jobs, type Job, type InsertJob, applications, type Application, type InsertApplication, jobSources, type JobSource, type InsertJobSource } from "@shared/schema";
 import session from "express-session";
-import createMemoryStore from "memorystore";
+import memorystore from "memorystore";
 
-const MemoryStore = createMemoryStore(session);
+// Create the MemoryStore constructor with session
+const MemoryStore = memorystore(session);
+// Define the type for the session store instances
+type SessionStore = session.Store;
 
 // modify the interface with any CRUD methods
 // you might need
@@ -12,6 +15,7 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: number, data: Partial<User>): Promise<User | undefined>;
+  saveLinkedinProfile(userId: number, profile: any): Promise<User | undefined>;
   
   // Resume methods
   getResumes(userId: number): Promise<Resume[]>;
@@ -19,21 +23,36 @@ export interface IStorage {
   createResume(resume: InsertResume): Promise<Resume>;
   updateResume(id: number, data: Partial<Resume>): Promise<Resume | undefined>;
   deleteResume(id: number): Promise<boolean>;
+  createResumeFromLinkedin(userId: number, linkedinData: any): Promise<Resume>;
   
   // Job methods
-  getJobs(filters?: Partial<Job>): Promise<Job[]>;
+  getJobs(filters?: Partial<Job> & Record<string, any>): Promise<Job[]>;
   getJob(id: number): Promise<Job | undefined>;
   createJob(job: InsertJob): Promise<Job>;
   getRecommendedJobs(userId: number, limit?: number): Promise<Job[]>;
+  
+  // Job Sources methods
+  getJobSources(): Promise<JobSource[]>;
+  getJobSource(id: number): Promise<JobSource | undefined>;
+  createJobSource(source: InsertJobSource): Promise<JobSource>;
+  updateJobSource(id: number, data: Partial<JobSource>): Promise<JobSource | undefined>;
+  deleteJobSource(id: number): Promise<boolean>;
+  syncJobsFromSource(sourceId: number): Promise<Job[]>;
   
   // Application methods
   getApplications(userId: number): Promise<Application[]>;
   getApplication(id: number): Promise<Application | undefined>;
   createApplication(application: InsertApplication): Promise<Application>;
   updateApplicationStatus(id: number, status: string): Promise<Application | undefined>;
+  updateApplication(id: number, data: Partial<Application>): Promise<Application | undefined>;
+  getApplicationsWithCalendarEvents(userId: number): Promise<Application[]>;
+  
+  // Calendar methods
+  syncApplicationWithCalendar(applicationId: number): Promise<Application | undefined>;
+  removeCalendarEvent(applicationId: number): Promise<Application | undefined>;
   
   // Session store
-  sessionStore: session.SessionStore;
+  sessionStore: SessionStore;
 }
 
 export class MemStorage implements IStorage {
@@ -41,21 +60,25 @@ export class MemStorage implements IStorage {
   private resumes: Map<number, Resume>;
   private jobs: Map<number, Job>;
   private applications: Map<number, Application>;
+  private jobSources: Map<number, JobSource>;
   private userIdCounter: number;
   private resumeIdCounter: number;
   private jobIdCounter: number;
   private applicationIdCounter: number;
-  sessionStore: session.SessionStore;
+  private jobSourceIdCounter: number;
+  sessionStore: SessionStore;
 
   constructor() {
     this.users = new Map();
     this.resumes = new Map();
     this.jobs = new Map();
     this.applications = new Map();
+    this.jobSources = new Map();
     this.userIdCounter = 1;
     this.resumeIdCounter = 1;
     this.jobIdCounter = 1;
     this.applicationIdCounter = 1;
+    this.jobSourceIdCounter = 1;
     this.sessionStore = new MemoryStore({
       checkPeriod: 86400000,
     });
@@ -77,7 +100,19 @@ export class MemStorage implements IStorage {
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = this.userIdCounter++;
-    const user: User = { ...insertUser, id, plan: "free" };
+    // Add default values for all required fields in the User type
+    const user: User = { 
+      ...insertUser, 
+      id, 
+      name: insertUser.name || null,
+      email: insertUser.email || null,
+      avatar: null,
+      plan: "free",
+      linkedinProfile: null,
+      linkedinData: null,
+      calendarIntegration: false,
+      googleRefreshToken: null
+    };
     this.users.set(id, user);
     return user;
   }
@@ -88,6 +123,20 @@ export class MemStorage implements IStorage {
     
     const updatedUser = { ...user, ...data };
     this.users.set(id, updatedUser);
+    return updatedUser;
+  }
+  
+  async saveLinkedinProfile(userId: number, profile: any): Promise<User | undefined> {
+    const user = await this.getUser(userId);
+    if (!user) return undefined;
+    
+    const updatedUser = { 
+      ...user, 
+      linkedinProfile: profile.publicProfileUrl || "",
+      linkedinData: profile
+    };
+    
+    this.users.set(userId, updatedUser);
     return updatedUser;
   }
 
@@ -107,8 +156,11 @@ export class MemStorage implements IStorage {
     const now = new Date();
     const resume: Resume = { 
       ...insertResume, 
-      id, 
-      matchScore: Math.floor(Math.random() * 30) + 70, // Mock match score between 70-100
+      id,
+      content: insertResume.content || null,
+      fileUrl: insertResume.fileUrl || null,
+      skills: insertResume.skills || [],
+      matchScore: insertResume.matchScore || Math.floor(Math.random() * 30) + 70, // Mock match score between 70-100
       updatedAt: now 
     };
     this.resumes.set(id, resume);
@@ -127,6 +179,56 @@ export class MemStorage implements IStorage {
 
   async deleteResume(id: number): Promise<boolean> {
     return this.resumes.delete(id);
+  }
+  
+  async createResumeFromLinkedin(userId: number, linkedinData: any): Promise<Resume> {
+    // Extract relevant info from LinkedIn profile to create a resume
+    const skills = linkedinData.skills?.map((s: any) => s.name) || [];
+    const experiences = linkedinData.positions?.values || [];
+    const education = linkedinData.educations?.values || [];
+    
+    // Create a formatted resume content from the LinkedIn data
+    let content = `# ${linkedinData.formattedName || 'Professional Resume'}\n\n`;
+    content += `## Contact Information\n`;
+    content += `${linkedinData.emailAddress || ''}\n`;
+    content += `${linkedinData.phoneNumbers?.values?.[0]?.phoneNumber || ''}\n\n`;
+    
+    content += `## Summary\n${linkedinData.summary || ''}\n\n`;
+    
+    content += `## Experience\n`;
+    experiences.forEach((exp: any) => {
+      content += `### ${exp.title} at ${exp.company?.name}\n`;
+      if (exp.startDate && exp.endDate) {
+        content += `${exp.startDate.month}/${exp.startDate.year} - ${exp.endDate.month}/${exp.endDate.year}\n`;
+      } else if (exp.startDate) {
+        content += `${exp.startDate.month}/${exp.startDate.year} - Present\n`;
+      }
+      content += `${exp.summary || ''}\n\n`;
+    });
+    
+    content += `## Education\n`;
+    education.forEach((edu: any) => {
+      content += `### ${edu.degree} in ${edu.fieldOfStudy}\n`;
+      content += `${edu.schoolName}\n`;
+      if (edu.startDate && edu.endDate) {
+        content += `${edu.startDate.year} - ${edu.endDate.year}\n`;
+      }
+      content += `\n`;
+    });
+    
+    content += `## Skills\n`;
+    content += skills.join(', ');
+    
+    // Create a new resume with the extracted data
+    const resumeData: InsertResume = {
+      userId,
+      name: `${linkedinData.formattedName}'s LinkedIn Resume`,
+      language: 'en',
+      content,
+      skills,
+    };
+    
+    return this.createResume(resumeData);
   }
 
   // Job methods
@@ -161,7 +263,19 @@ export class MemStorage implements IStorage {
   async createJob(insertJob: InsertJob): Promise<Job> {
     const id = this.jobIdCounter++;
     const now = new Date();
-    const job: Job = { ...insertJob, id, postedAt: now };
+    const job: Job = { 
+      ...insertJob, 
+      id, 
+      location: insertJob.location || null,
+      description: insertJob.description || null,
+      salary: insertJob.salary || null,
+      jobType: insertJob.jobType || null,
+      skills: insertJob.skills || [],
+      source: insertJob.source || null,
+      remoteOption: insertJob.remoteOption || null,
+      matchScore: insertJob.matchScore || null,
+      postedAt: now 
+    };
     this.jobs.set(id, job);
     return job;
   }
@@ -174,12 +288,75 @@ export class MemStorage implements IStorage {
       
     return jobs;
   }
+  
+  // Job Sources methods
+  async getJobSources(): Promise<JobSource[]> {
+    return Array.from(this.jobSources.values());
+  }
+  
+  async getJobSource(id: number): Promise<JobSource | undefined> {
+    return this.jobSources.get(id);
+  }
+  
+  async createJobSource(source: InsertJobSource): Promise<JobSource> {
+    const id = this.jobSourceIdCounter++;
+    const jobSource: JobSource = { 
+      ...source, 
+      id, 
+      apiKey: source.apiKey || null,
+      isEnabled: source.isEnabled !== undefined ? source.isEnabled : true,
+      configOptions: source.configOptions || {},
+      lastSync: null 
+    };
+    this.jobSources.set(id, jobSource);
+    return jobSource;
+  }
+  
+  async updateJobSource(id: number, data: Partial<JobSource>): Promise<JobSource | undefined> {
+    const source = await this.getJobSource(id);
+    if (!source) return undefined;
+    
+    const updatedSource = { ...source, ...data };
+    this.jobSources.set(id, updatedSource);
+    return updatedSource;
+  }
+  
+  async deleteJobSource(id: number): Promise<boolean> {
+    return this.jobSources.delete(id);
+  }
+  
+  async syncJobsFromSource(sourceId: number): Promise<Job[]> {
+    const source = await this.getJobSource(sourceId);
+    if (!source || !source.isEnabled) {
+      return [];
+    }
+    
+    // In a real application, this would make an API call to the job source
+    // For now, we'll create some mock jobs from this source
+    const newJobs: Job[] = [];
+    const now = new Date();
+    
+    // Update the lastSync timestamp
+    await this.updateJobSource(sourceId, { lastSync: now });
+    
+    return newJobs;
+  }
 
   // Application methods
   async getApplications(userId: number): Promise<Application[]> {
     return Array.from(this.applications.values())
       .filter(app => app.userId === userId)
-      .sort((a, b) => new Date(b.appliedAt).getTime() - new Date(a.appliedAt).getTime());
+      .sort((a, b) => {
+        // Handle null dates by treating them as earlier than any actual date
+        if (!a.appliedAt) return 1;
+        if (!b.appliedAt) return -1;
+        
+        // Ensure we have valid Date objects before calling getTime()
+        const dateA = a.appliedAt instanceof Date ? a.appliedAt : new Date(a.appliedAt);
+        const dateB = b.appliedAt instanceof Date ? b.appliedAt : new Date(b.appliedAt);
+        
+        return dateB.getTime() - dateA.getTime();
+      });
   }
 
   async getApplication(id: number): Promise<Application | undefined> {
@@ -193,7 +370,14 @@ export class MemStorage implements IStorage {
       ...insertApplication, 
       id, 
       status: insertApplication.status || "applied",
-      appliedAt: now 
+      source: insertApplication.source || null,
+      resumeId: insertApplication.resumeId || null,
+      appliedAt: now,
+      notes: insertApplication.notes || null,
+      calendarEventId: insertApplication.calendarEventId || null,
+      deadlineDate: insertApplication.deadlineDate || null,
+      interviewDate: insertApplication.interviewDate || null,
+      isCalendarSynced: insertApplication.isCalendarSynced || false
     };
     this.applications.set(id, application);
     return application;
@@ -205,6 +389,54 @@ export class MemStorage implements IStorage {
     
     const updatedApplication = { ...application, status };
     this.applications.set(id, updatedApplication);
+    return updatedApplication;
+  }
+  
+  async updateApplication(id: number, data: Partial<Application>): Promise<Application | undefined> {
+    const application = await this.getApplication(id);
+    if (!application) return undefined;
+    
+    const updatedApplication = { ...application, ...data };
+    this.applications.set(id, updatedApplication);
+    return updatedApplication;
+  }
+  
+  async getApplicationsWithCalendarEvents(userId: number): Promise<Application[]> {
+    const applications = await this.getApplications(userId);
+    return applications.filter(app => app.isCalendarSynced && app.calendarEventId);
+  }
+  
+  async syncApplicationWithCalendar(applicationId: number): Promise<Application | undefined> {
+    const application = await this.getApplication(applicationId);
+    if (!application) return undefined;
+    
+    // In a real implementation, this would create a calendar event using Google Calendar API
+    // For now, we'll just update the application with mock event data
+    const eventId = `event_${Date.now()}_${applicationId}`;
+    
+    const updatedApplication = { 
+      ...application, 
+      calendarEventId: eventId,
+      isCalendarSynced: true 
+    };
+    
+    this.applications.set(applicationId, updatedApplication);
+    return updatedApplication;
+  }
+  
+  async removeCalendarEvent(applicationId: number): Promise<Application | undefined> {
+    const application = await this.getApplication(applicationId);
+    if (!application) return undefined;
+    
+    // In a real implementation, this would delete the calendar event using Google Calendar API
+    // For now, we'll just update the application to remove the event reference
+    const updatedApplication = { 
+      ...application, 
+      calendarEventId: null,
+      isCalendarSynced: false 
+    };
+    
+    this.applications.set(applicationId, updatedApplication);
     return updatedApplication;
   }
 
