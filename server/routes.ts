@@ -655,6 +655,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // For security, only admin users can add job sources in a real application
       // in a demo, we'll allow any authenticated user
       const jobSourceData = insertJobSourceSchema.parse(req.body);
+      
+      // Check if job source with this name already exists
+      const existingSources = await storage.getJobSources();
+      const exists = existingSources.some(
+        source => source.name.toLowerCase() === jobSourceData.name.toLowerCase()
+      );
+      
+      if (exists) {
+        // Return the existing source instead of creating a duplicate
+        const existingSource = existingSources.find(
+          source => source.name.toLowerCase() === jobSourceData.name.toLowerCase()
+        );
+        return res.status(200).json(existingSource);
+      }
+      
+      // Create new job source if it doesn't exist
       const jobSource = await storage.createJobSource(jobSourceData);
       
       res.status(201).json(jobSource);

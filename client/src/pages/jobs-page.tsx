@@ -72,7 +72,12 @@ export default function JobsPage() {
       }
     };
     
-    setupDefaultSources();
+    // Only run this effect once when the component mounts
+    const hasSetupRun = localStorage.getItem('jobSourcesInitialized');
+    if (!hasSetupRun) {
+      setupDefaultSources();
+      localStorage.setItem('jobSourcesInitialized', 'true');
+    }
   }, [jobSources, toast]);
 
   const handleSearch = (filters: any) => {
