@@ -717,26 +717,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!req.isAuthenticated()) return res.status(401).send("Unauthorized");
     
     try {
-      const { sourceId, query } = req.body;
+      const { sourceIds, query } = req.body;
       
-      if (!sourceId || !query) {
-        return res.status(400).send("Source ID and search query are required");
+      if (!sourceIds || !Array.isArray(sourceIds) || sourceIds.length === 0 || !query) {
+        return res.status(400).send("Source IDs array and search query are required");
       }
       
-      // Get the job source
-      const source = await storage.getJobSource(parseInt(sourceId));
-      if (!source) {
-        return res.status(404).send("Job source not found");
-      }
+      // Using Promise.all to search multiple job boards in parallel
+      const searchPromises = sourceIds.map(async (sourceId) => {
+        try {
+          // Get the job source
+          const source = await storage.getJobSource(parseInt(sourceId));
+          if (!source) {
+            console.warn(`Job source ${sourceId} not found`);
+            return null;
+          }
+          
+          // Create connector for the job board - will automatically use web scraping if no API key
+          const connector = createJobBoardConnector(source.name, source.apiKey || '');
+  
+          // Search for jobs
+          const searchResult = await connector.searchJobs(query);
+          
+          // Convert to internal format and add source information
+          const jobs = searchResult.jobs.map(job => {
+            const convertedJob = convertToInsertJob(job);
+            convertedJob.source = source.name; // Make sure source is properly attributed
+            return convertedJob;
+          });
+          
+          return {
+            source: source.name,
+            sourceType: source.apiKey ? 'api' : 'scraper',
+            totalJobs: searchResult.totalJobs,
+            pageCount: searchResult.pageCount,
+            currentPage: searchResult.currentPage,
+            jobs
+          };
+        } catch (error) {
+          console.error(`Error searching source ${sourceId}:`, error);
+          return null; // Return null for failed sources
+        }
+      });
       
-      // Create connector for the job board - will automatically use web scraping if no API key
-      const connector = createJobBoardConnector(source.name, source.apiKey || '');
+      // Wait for all searches to complete
+      const results = (await Promise.all(searchPromises)).filter(Boolean);
       
-      // Search for jobs
-      const searchResult = await connector.searchJobs(query);
+      // Combine results from all sources
+      const combinedJobs = results.flatMap(result => result?.jobs || []);
+      const totalJobs = results.reduce((sum, result) => sum + (result?.totalJobs || 0), 0);
+      const sources = results.map(result => result?.source).filter(Boolean).join(', ');
       
       // Check if we got any results
-      if (!searchResult.jobs || searchResult.jobs.length === 0) {
+      if (combinedJobs.length === 0) {
         // Just return empty results rather than an error
         return res.json({
           success: true,
@@ -745,23 +778,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           pageCount: 0,
           currentPage: 1,
           jobs: [],
-          source: source.name,
-          sourceType: source.apiKey ? 'api' : 'scraper'
+          sources,
+          sourceCount: sourceIds.length
         });
       }
-      
-      // Convert to internal format
-      const jobs = searchResult.jobs.map(job => convertToInsertJob(job));
       
       res.json({
         success: true,
         query,
-        totalJobs: searchResult.totalJobs,
-        pageCount: searchResult.pageCount,
-        currentPage: searchResult.currentPage,
-        jobs,
-        source: source.name,
-        sourceType: source.apiKey ? 'api' : 'scraper'
+        totalJobs,
+        pageCount: Math.ceil(totalJobs / (query.pageSize || 10)),
+        currentPage: query.page || 1,
+        jobs: combinedJobs,
+        sources,
+        sourceCount: results.length
       });
     } catch (error) {
       console.error("Job search error:", error);

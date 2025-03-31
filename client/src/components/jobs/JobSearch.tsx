@@ -22,7 +22,7 @@ interface JobSource {
 export default function JobSearch({ onSearch }: { onSearch: (filters: any) => void }) {
   const [query, setQuery] = useState("");
   const [location, setLocation] = useState("");
-  const [selectedSource, setSelectedSource] = useState<number | null>(null);
+  const [selectedSources, setSelectedSources] = useState<number[]>([]);
   const [activeFilters, setActiveFilters] = useState<Filter[]>([]);
   
   // Get job sources from API
@@ -33,14 +33,14 @@ export default function JobSearch({ onSearch }: { onSearch: (filters: any) => vo
 
   // Set first source as default when sources are loaded
   useEffect(() => {
-    if (jobSources.length > 0 && !selectedSource) {
-      setSelectedSource(jobSources[0].id);
+    if (jobSources.length > 0 && selectedSources.length === 0) {
+      setSelectedSources([jobSources[0].id]);
     }
-  }, [jobSources, selectedSource]);
+  }, [jobSources, selectedSources]);
   
   const handleSearch = () => {
-    // Don't search without a source
-    if (!selectedSource) return;
+    // Don't search without at least one source
+    if (selectedSources.length === 0) return;
     
     const jobType = activeFilters.find(f => 
       ['fulltime', 'parttime', 'contract', 'internship'].includes(f.id)
@@ -48,9 +48,9 @@ export default function JobSearch({ onSearch }: { onSearch: (filters: any) => vo
     
     const remote = activeFilters.some(f => f.id === 'remote');
     
-    // Create search params object
+    // Create search params object with multiple sources
     const searchParams = {
-      sourceId: selectedSource,
+      sourceIds: selectedSources,
       query: {
         keywords: query,
         location,
@@ -64,8 +64,16 @@ export default function JobSearch({ onSearch }: { onSearch: (filters: any) => vo
     onSearch(searchParams);
   };
   
-  const handleSourceChange = (value: string) => {
-    setSelectedSource(parseInt(value));
+  const handleSourceToggle = (sourceId: number) => {
+    setSelectedSources(prev => {
+      if (prev.includes(sourceId)) {
+        // Remove the source if already selected
+        return prev.filter(id => id !== sourceId);
+      } else {
+        // Add the source if not already selected
+        return [...prev, sourceId];
+      }
+    });
   };
   
   const addFilter = (filter: Filter) => {
@@ -145,21 +153,24 @@ export default function JobSearch({ onSearch }: { onSearch: (filters: any) => vo
           
           {/* Job Source Selection */}
           <div className="md:col-span-3">
-            <Select value={selectedSource?.toString()} onValueChange={handleSourceChange}>
-              <SelectTrigger className="w-full">
-                <div className="flex items-center">
-                  <Globe className="mr-2 h-4 w-4 text-gray-400" />
-                  <SelectValue placeholder="Select Job Board" />
-                </div>
-              </SelectTrigger>
-              <SelectContent>
+            <div className="border rounded-md p-2 h-full">
+              <div className="flex items-center mb-1">
+                <Globe className="mr-2 h-4 w-4 text-gray-400" />
+                <span className="text-sm text-gray-700">Select Job Boards:</span>
+              </div>
+              <div className="flex flex-wrap gap-1 mt-1">
                 {jobSources.map(source => (
-                  <SelectItem key={source.id} value={source.id.toString()}>
+                  <Badge 
+                    key={source.id}
+                    variant={selectedSources.includes(source.id) ? "default" : "outline"}
+                    className="cursor-pointer"
+                    onClick={() => handleSourceToggle(source.id)}
+                  >
                     {source.name}
-                  </SelectItem>
+                  </Badge>
                 ))}
-              </SelectContent>
-            </Select>
+              </div>
+            </div>
           </div>
           
           {/* Search Button */}
@@ -167,7 +178,7 @@ export default function JobSearch({ onSearch }: { onSearch: (filters: any) => vo
             <Button 
               className="w-full" 
               onClick={handleSearch} 
-              disabled={!selectedSource}
+              disabled={selectedSources.length === 0}
             >
               Search Jobs
             </Button>

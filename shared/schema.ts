@@ -104,7 +104,7 @@ export type Job = typeof jobs.$inferSelect;
 export const jobSources = pgTable("job_sources", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
-  apiUrl: text("api_url").notNull(),
+  url: text("url"),
   apiKey: text("api_key"),
   isEnabled: boolean("is_enabled").default(true),
   lastSync: timestamp("last_sync"),

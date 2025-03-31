@@ -59,19 +59,19 @@ export default function JobList({ filters }: JobListProps) {
   
   // Use this query for job board API searches
   const { data: apiSearchResult, isLoading: isApiLoading } = useQuery<SearchResult>({
-    queryKey: ["/api/job-sources/search", filters?.sourceId, filters?.query],
-    enabled: !!filters?.sourceId && !!filters?.query, // Only run if we have sourceId and query
+    queryKey: ["/api/job-sources/search", filters?.sourceIds, filters?.query],
+    enabled: !!filters?.sourceIds && filters?.sourceIds.length > 0 && !!filters?.query, // Only run if we have sourceIds and query
     staleTime: 60000, // Prevent frequent refetches
     queryFn: async () => {
-      // Set external search state based on sourceId
-      setIsExternalSearch(!!filters?.sourceId);
+      // Set external search state based on sourceIds
+      setIsExternalSearch(!!filters?.sourceIds && filters?.sourceIds.length > 0);
       const response = await fetch("/api/job-sources/search", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          sourceId: filters.sourceId,
+          sourceIds: filters.sourceIds,
           query: filters.query
         }),
       });
