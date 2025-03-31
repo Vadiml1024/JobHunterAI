@@ -31,6 +31,11 @@ export default function JobSearch({ onSearch }: { onSearch: (filters: any) => vo
     refetchOnWindowFocus: false
   });
 
+  // Log job sources for debugging
+  useEffect(() => {
+    console.log("Job sources loaded:", jobSources);
+  }, [jobSources]);
+
   // Set first source as default when sources are loaded
   useEffect(() => {
     if (jobSources.length > 0 && selectedSources.length === 0) {

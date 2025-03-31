@@ -39,9 +39,9 @@ export default function JobsPage() {
         try {
           // Create default job sources if none exist
           const defaultSources = [
-            { name: 'LinkedIn', url: 'https://www.linkedin.com/jobs' },
-            { name: 'Indeed', url: 'https://www.indeed.com' },
-            { name: 'Glassdoor', url: 'https://www.glassdoor.com/Job' }
+            { name: 'LinkedIn', url: 'https://www.linkedin.com/jobs', isEnabled: true },
+            { name: 'Indeed', url: 'https://www.indeed.com', isEnabled: true },
+            { name: 'Glassdoor', url: 'https://www.glassdoor.com/Job', isEnabled: true }
           ];
           
           // Create sources one by one
