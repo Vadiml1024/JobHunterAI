@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import Sidebar from "@/components/layout/Sidebar";
 import TopBar from "@/components/layout/TopBar";
 import MobileNav from "@/components/layout/MobileNav";
@@ -6,18 +7,74 @@ import ChatAssistant from "@/components/layout/ChatAssistant";
 import JobSearch from "@/components/jobs/JobSearch";
 import JobList from "@/components/jobs/JobList";
 import JobFilters from "@/components/jobs/JobFilters";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { SiLinkedin, SiIndeed, SiGlassdoor } from "react-icons/si";
+import { useToast } from "@/hooks/use-toast";
+
+interface JobSource {
+  id: number;
+  name: string;
+  url?: string;
+  apiKey?: string;
+}
 
 export default function JobsPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
-  const [searchFilters, setSearchFilters] = useState({});
+  const [searchFilters, setSearchFilters] = useState<any>({});
+  const { toast } = useToast();
+
+  // Check if any job sources exist
+  const { data: jobSources = [] } = useQuery<JobSource[]>({
+    queryKey: ['/api/job-sources']
+  });
+  
+  // Add default job sources if none exist
+  useEffect(() => {
+    const setupDefaultSources = async () => {
+      if (jobSources.length === 0) {
+        try {
+          // Create default job sources if none exist
+          const defaultSources = [
+            { name: 'LinkedIn', url: 'https://www.linkedin.com/jobs' },
+            { name: 'Indeed', url: 'https://www.indeed.com' },
+            { name: 'Glassdoor', url: 'https://www.glassdoor.com/Job' }
+          ];
+          
+          for (const source of defaultSources) {
+            await fetch('/api/job-sources', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(source)
+            });
+          }
+          
+          // Invalidate the query to refresh job sources
+          // queryClient.invalidateQueries({ queryKey: ['/api/job-sources'] });
+        } catch (error) {
+          console.error('Failed to create default job sources:', error);
+        }
+      }
+    };
+    
+    setupDefaultSources();
+  }, [jobSources]);
 
   const handleSearch = (filters: any) => {
-    setSearchFilters(prev => ({ ...prev, ...filters }));
+    // Reset any previous filters
+    setSearchFilters(filters);
   };
 
   const handleApplyFilters = (filters: any) => {
-    setSearchFilters(prev => ({ ...prev, ...filters }));
+    // Keep sourceId and query from search, add other filters
+    setSearchFilters((prev: any) => {
+      const { sourceId, query } = prev;
+      return { 
+        ...filters,
+        ...(sourceId && query ? { sourceId, query } : {})
+      };
+    });
   };
 
   return (

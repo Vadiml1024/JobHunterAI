@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Job } from "@/types";
+import { Job, SearchResult } from "@/types";
 import { Building, DollarSign, ArrowUp } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDistanceToNow } from "date-fns";
@@ -17,9 +17,12 @@ interface JobListProps {
 export default function JobList({ filters }: JobListProps) {
   const [page, setPage] = useState(1);
   const [sortBy, setSortBy] = useState("relevance");
+  const [isExternalSearch, setIsExternalSearch] = useState(false);
   
-  const { data: jobs, isLoading } = useQuery<Job[]>({
+  // Use this query for database jobs
+  const { data: dbJobs, isLoading: isDbLoading } = useQuery<Job[]>({
     queryKey: ["/api/jobs", filters],
+    enabled: !isExternalSearch && !filters?.sourceId, // Only run if not using job board API
     queryFn: async ({ queryKey }) => {
       const [endpoint, filterParams] = queryKey;
       
@@ -54,13 +57,46 @@ export default function JobList({ filters }: JobListProps) {
     }
   });
   
-  const itemsPerPage = 10;
-  const totalPages = jobs ? Math.ceil(jobs.length / itemsPerPage) : 0;
+  // Use this query for job board API searches
+  const { data: apiSearchResult, isLoading: isApiLoading } = useQuery<SearchResult>({
+    queryKey: ["/api/job-sources/search", filters?.sourceId, filters?.query],
+    enabled: !!filters?.sourceId && !!filters?.query, // Only run if we have sourceId and query
+    staleTime: 60000, // Prevent frequent refetches
+    queryFn: async () => {
+      // Set external search state based on sourceId
+      setIsExternalSearch(!!filters?.sourceId);
+      const response = await fetch("/api/job-sources/search", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          sourceId: filters.sourceId,
+          query: filters.query
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error("Failed to search jobs");
+      }
+      
+      return response.json();
+    }
+  });
   
-  const paginatedJobs = jobs?.slice(
-    (page - 1) * itemsPerPage,
-    page * itemsPerPage
-  );
+  // Determine which jobs to show and pagination info
+  const jobs = isExternalSearch ? apiSearchResult?.jobs : dbJobs;
+  const isLoading = isExternalSearch ? isApiLoading : isDbLoading;
+  
+  // For database jobs, handle pagination in the component
+  const itemsPerPage = 10;
+  const totalPages = isExternalSearch 
+    ? (apiSearchResult?.pageCount || 0) 
+    : (dbJobs ? Math.ceil(dbJobs.length / itemsPerPage) : 0);
+  
+  const paginatedJobs = isExternalSearch
+    ? apiSearchResult?.jobs // API already returns paginated results
+    : dbJobs?.slice((page - 1) * itemsPerPage, page * itemsPerPage); // Paginate locally
   
   const handleSort = (value: string) => {
     setSortBy(value);
@@ -127,7 +163,7 @@ export default function JobList({ filters }: JobListProps) {
               </li>
             ))
           ) : (
-            paginatedJobs?.map((job) => (
+            paginatedJobs?.map((job: Job) => (
               <li key={job.id} className="px-4 py-4 sm:px-6 hover:bg-gray-50 cursor-pointer">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
@@ -159,7 +195,7 @@ export default function JobList({ filters }: JobListProps) {
                   </p>
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
-                  {job.skills?.map((skill, index) => (
+                  {job.skills?.map((skill: string, index: number) => (
                     <Badge key={index} variant="secondary" className="bg-gray-100 text-gray-800">
                       {skill}
                     </Badge>

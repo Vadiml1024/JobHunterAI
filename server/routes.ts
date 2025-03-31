@@ -729,11 +729,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).send("Job source not found");
       }
       
-      // Create connector for the job board
+      // Create connector for the job board - will automatically use web scraping if no API key
       const connector = createJobBoardConnector(source.name, source.apiKey || '');
       
       // Search for jobs
       const searchResult = await connector.searchJobs(query);
+      
+      // Check if we got any results
+      if (!searchResult.jobs || searchResult.jobs.length === 0) {
+        // Just return empty results rather than an error
+        return res.json({
+          success: true,
+          query,
+          totalJobs: 0,
+          pageCount: 0,
+          currentPage: 1,
+          jobs: [],
+          source: source.name,
+          sourceType: source.apiKey ? 'api' : 'scraper'
+        });
+      }
       
       // Convert to internal format
       const jobs = searchResult.jobs.map(job => convertToInsertJob(job));
@@ -744,10 +759,107 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalJobs: searchResult.totalJobs,
         pageCount: searchResult.pageCount,
         currentPage: searchResult.currentPage,
-        jobs
+        jobs,
+        source: source.name,
+        sourceType: source.apiKey ? 'api' : 'scraper'
       });
     } catch (error) {
       console.error("Job search error:", error);
+      res.status(500).send((error as Error).message);
+    }
+  });
+  
+  // API Key management routes for job boards
+  app.get("/api/job-sources/api-keys", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) return res.status(401).send("Unauthorized");
+    
+    // Get a list of which sources have API keys registered
+    try {
+      const jobSources = await storage.getJobSources();
+      const sourceStatus = jobSources.map(source => ({
+        id: source.id,
+        name: source.name,
+        hasApiKey: !!source.apiKey
+      }));
+      
+      res.json(sourceStatus);
+    } catch (error) {
+      console.error("API key status error:", error);
+      res.status(500).send((error as Error).message);
+    }
+  });
+  
+  app.post("/api/job-sources/:id/api-key", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) return res.status(401).send("Unauthorized");
+    
+    try {
+      const { apiKey } = req.body;
+      const sourceId = parseInt(req.params.id);
+      
+      if (!apiKey) {
+        return res.status(400).send("API key is required");
+      }
+      
+      // Get the job source
+      const source = await storage.getJobSource(sourceId);
+      if (!source) {
+        return res.status(404).send("Job source not found");
+      }
+      
+      // Update the API key
+      const updatedSource = await storage.updateJobSource(sourceId, { apiKey });
+      
+      // Don't return the actual API key in the response for security
+      res.json({
+        id: updatedSource?.id || sourceId,
+        name: updatedSource?.name || source.name,
+        hasApiKey: true
+      });
+    } catch (error) {
+      console.error("API key update error:", error);
+      res.status(500).send((error as Error).message);
+    }
+  });
+  
+  // Route for getting job details
+  app.get("/api/job-sources/:sourceId/jobs/:jobId", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) return res.status(401).send("Unauthorized");
+    
+    try {
+      const sourceId = parseInt(req.params.sourceId);
+      const jobId = req.params.jobId;
+      
+      if (!sourceId || !jobId) {
+        return res.status(400).send("Source ID and Job ID are required");
+      }
+      
+      // Get the job source
+      const source = await storage.getJobSource(sourceId);
+      if (!source) {
+        return res.status(404).send("Job source not found");
+      }
+      
+      // Create connector for the job board
+      const connector = createJobBoardConnector(source.name, source.apiKey || '');
+      
+      // Get job details
+      const jobDetails = await connector.getJobDetails(jobId);
+      
+      if (!jobDetails) {
+        return res.status(404).send("Job not found");
+      }
+      
+      // Convert to internal format
+      const job = convertToInsertJob(jobDetails);
+      
+      res.json({
+        success: true,
+        job,
+        fullDetails: jobDetails,
+        source: source.name
+      });
+    } catch (error) {
+      console.error("Job details error:", error);
       res.status(500).send((error as Error).message);
     }
   });

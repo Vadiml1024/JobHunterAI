@@ -71,3 +71,22 @@ export interface ApplicationStage {
 }
 
 export type ApplicationStatus = 'applied' | 'screening' | 'interview' | 'offer' | 'rejected';
+
+export interface JobSource {
+  id: number;
+  name: string;
+  url?: string;
+  apiKey?: string;
+  lastSync?: Date;
+}
+
+export interface SearchResult {
+  success: boolean;
+  jobs: Job[];
+  totalJobs: number;
+  pageCount: number;
+  currentPage: number;
+  query?: any;
+  source?: string;
+  sourceType?: 'api' | 'scraper';
+}
