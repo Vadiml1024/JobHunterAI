@@ -298,6 +298,14 @@ export default function ResumeList() {
               {previewResume.experience && (
                 <div>
                   <h3 className="text-lg font-medium text-primary">Experience</h3>
+                  {/* Debug section - will remove after debugging */}
+                  <div className="mt-2 text-xs bg-gray-100 p-2 rounded-md">
+                    <div><strong>Raw type:</strong> {typeof previewResume.experience}</div>
+                    <div><strong>Is Array:</strong> {Array.isArray(previewResume.experience) ? 'Yes' : 'No'}</div>
+                    <div><strong>ToString:</strong> {String(previewResume.experience).substring(0, 100)}...</div>
+                    <div><strong>JSON:</strong> {JSON.stringify(previewResume.experience).substring(0, 100)}...</div>
+                  </div>
+                  
                   <div className="mt-2 bg-muted/30 p-4 rounded-md space-y-2">
                     {(() => {
                       // Try to parse the experience if it's a string but contains JSON objects
@@ -355,6 +363,13 @@ export default function ResumeList() {
               {previewResume.education && (
                 <div>
                   <h3 className="text-lg font-medium text-primary">Education</h3>
+                  {/* Debug section - will remove after debugging */}
+                  <div className="mt-2 text-xs bg-gray-100 p-2 rounded-md">
+                    <div><strong>Raw type:</strong> {typeof previewResume.education}</div>
+                    <div><strong>Is Array:</strong> {Array.isArray(previewResume.education) ? 'Yes' : 'No'}</div>
+                    <div><strong>ToString:</strong> {String(previewResume.education).substring(0, 100)}...</div>
+                    <div><strong>JSON:</strong> {JSON.stringify(previewResume.education).substring(0, 100)}...</div>
+                  </div>
                   <div className="mt-2 bg-muted/30 p-4 rounded-md space-y-2">
                     {(() => {
                       // Try to parse the education if it's a string but contains JSON objects
