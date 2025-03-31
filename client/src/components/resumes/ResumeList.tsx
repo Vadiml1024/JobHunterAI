@@ -311,6 +311,18 @@ export default function ResumeList() {
                       <div className="whitespace-pre-wrap text-sm leading-relaxed">
                         {previewResume.experience}
                       </div>
+                    ) : previewResume.experience && typeof previewResume.experience === 'object' ? (
+                      // Handle when experience is an object (not an array or string)
+                      Object.entries(previewResume.experience).map(([key, value], i) => {
+                        const exp = value as Record<string, any>;
+                        return (
+                          <div key={i} className="pb-2 border-b last:border-b-0 last:pb-0">
+                            <div className="font-medium">{exp.position || exp.role || key || 'Position'}</div>
+                            <div>{exp.company || 'Company'}</div>
+                            {exp.description && <div className="text-sm text-gray-600 mt-1">{exp.description}</div>}
+                          </div>
+                        );
+                      })
                     ) : (
                       <p className="text-muted-foreground">No experience data found</p>
                     )}
@@ -334,6 +346,18 @@ export default function ResumeList() {
                       <div className="whitespace-pre-wrap text-sm leading-relaxed">
                         {previewResume.education}
                       </div>
+                    ) : previewResume.education && typeof previewResume.education === 'object' ? (
+                      // Handle when education is an object (not an array or string)
+                      Object.entries(previewResume.education).map(([key, value], i) => {
+                        const edu = value as Record<string, any>;
+                        return (
+                          <div key={i} className="pb-2 border-b last:border-b-0 last:pb-0">
+                            <div className="font-medium">{edu.institution || key || 'Institution'}</div>
+                            <div>{edu.qualification || edu.degree || 'Qualification'}</div>
+                            {edu.description && <div className="text-sm text-gray-600 mt-1">{edu.description}</div>}
+                          </div>
+                        );
+                      })
                     ) : (
                       <p className="text-muted-foreground">No education data found</p>
                     )}
