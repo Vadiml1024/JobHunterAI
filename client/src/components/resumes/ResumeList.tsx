@@ -298,63 +298,87 @@ export default function ResumeList() {
               {previewResume.experience && (
                 <div>
                   <h3 className="text-lg font-medium text-primary">Experience</h3>
-                  {/* Debug section - will remove after debugging */}
-                  <div className="mt-2 text-xs bg-gray-100 p-2 rounded-md">
-                    <div><strong>Raw type:</strong> {typeof previewResume.experience}</div>
-                    <div><strong>Is Array:</strong> {Array.isArray(previewResume.experience) ? 'Yes' : 'No'}</div>
-                    <div><strong>ToString:</strong> {String(previewResume.experience).substring(0, 100)}...</div>
-                    <div><strong>JSON:</strong> {JSON.stringify(previewResume.experience).substring(0, 100)}...</div>
-                  </div>
-                  
                   <div className="mt-2 bg-muted/30 p-4 rounded-md space-y-2">
                     {(() => {
-                      // Try to parse the experience if it's a string but contains JSON objects
-                      let experienceList: any = previewResume.experience;
-                      
-                      if (typeof experienceList === 'string') {
-                        try {
-                          // Check if it looks like a JSON array
-                          if (experienceList.trim().startsWith('[') && experienceList.trim().endsWith(']')) {
-                            const parsed = JSON.parse(experienceList);
-                            if (Array.isArray(parsed)) {
-                              experienceList = parsed as any;
+                      try {
+                        // Step 1: Get experience data in the most versatile format possible
+                        let experienceData: any = previewResume.experience;
+                        
+                        // If it's a JSON string, parse it
+                        if (typeof experienceData === 'string') {
+                          try {
+                            if (experienceData.trim().startsWith('[')) {
+                              // It's a JSON array string
+                              experienceData = JSON.parse(experienceData);
+                            } else if (experienceData.includes('[object Object]')) {
+                              // It was an array of objects that got converted to string
+                              // Don't parse it - handle specially below
                             }
-                          } else if (experienceList.includes('[object Object]')) {
-                            // If it contains "[object Object]", split by commas as that may be result of array.toString()
-                            return (
-                              <div className="whitespace-pre-wrap text-sm leading-relaxed space-y-2">
-                                {experienceList.split(',').map((item, i) => (
-                                  <div key={i} className="pb-2 border-b last:border-b-0 last:pb-0">
-                                    {item.replace('[object Object]', '').trim()}
-                                  </div>
-                                ))}
-                              </div>
-                            );
+                          } catch (e) {
+                            // Not valid JSON, continue with string
                           }
-                        } catch (e) {
-                          // Failed to parse as JSON, just use the string as is
                         }
+                        
+                        // Step 2: Render based on the data type
+                        if (Array.isArray(experienceData)) {
+                          // It's an array - render each item
+                          return experienceData.map((exp: any, i: number) => (
+                            <div key={i} className="pb-2 border-b last:border-b-0 last:pb-0">
+                              {typeof exp === 'object' && exp !== null ? (
+                                <>
+                                  <div className="font-medium">{exp.position || exp.role || 'Position'}</div>
+                                  <div>{exp.company || 'Company'}</div>
+                                  {exp.description && <div className="text-sm text-gray-600 mt-1">{exp.description}</div>}
+                                </>
+                              ) : (
+                                <div>{String(exp)}</div>
+                              )}
+                            </div>
+                          ));
+                        } else if (typeof experienceData === 'string' && experienceData.includes('[object Object]')) {
+                          // Handle the special case when an array was stringified poorly
+                          return experienceData.split('[object Object]')
+                            .filter(item => item.trim() !== '' && item !== ',')
+                            .map((item, i) => (
+                              <div key={i} className="pb-2 border-b last:border-b-0 last:pb-0">
+                                <div>{item.replace(/^,|,$/g, '').trim()}</div>
+                              </div>
+                            ));
+                        } else if (typeof experienceData === 'object' && experienceData !== null) {
+                          // It's a single object (not common, but possible)
+                          return (
+                            <div className="pb-2">
+                              <div className="font-medium">{experienceData.position || experienceData.role || 'Position'}</div>
+                              <div>{experienceData.company || 'Company'}</div>
+                              {experienceData.description && (
+                                <div className="text-sm text-gray-600 mt-1">{experienceData.description}</div>
+                              )}
+                            </div>
+                          );
+                        } else if (typeof experienceData === 'string') {
+                          // It's a simple string
+                          return (
+                            <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                              {experienceData}
+                            </div>
+                          );
+                        }
+                      } catch (error) {
+                        console.error("Error rendering experience:", error);
                       }
                       
-                      // Now handle based on what we have
-                      if (Array.isArray(experienceList)) {
-                        return experienceList.map((exp: any, i: number) => (
-                          <div key={i} className="pb-2 border-b last:border-b-0 last:pb-0">
-                            <div className="font-medium">{exp.position || exp.role || 'Position'}</div>
-                            <div>{exp.company || 'Company'}</div>
-                            {exp.description && <div className="text-sm text-gray-600 mt-1">{exp.description}</div>}
-                            {(typeof exp === 'string') && <div>{exp}</div>}
-                          </div>
-                        ));
-                      } else if (typeof experienceList === 'string') {
-                        return (
-                          <div className="whitespace-pre-wrap text-sm leading-relaxed">
-                            {experienceList}
-                          </div>
-                        );
-                      } else {
-                        return <p className="text-muted-foreground">No experience data found</p>;
-                      }
+                      // Fallback if nothing else worked
+                      return (
+                        <div className="text-sm">
+                          {String(previewResume.experience).split('[object Object]')
+                            .filter(s => s.trim() !== '' && s !== ',')
+                            .map((s, i) => (
+                              <div key={i} className="pb-2 border-b last:border-b-0 last:pb-0">
+                                {s.replace(/^,|,$/g, '').trim()}
+                              </div>
+                            ))}
+                        </div>
+                      );
                     })()}
                   </div>
                 </div>
@@ -363,67 +387,87 @@ export default function ResumeList() {
               {previewResume.education && (
                 <div>
                   <h3 className="text-lg font-medium text-primary">Education</h3>
-                  {/* Debug section - will remove after debugging */}
-                  <div className="mt-2 text-xs bg-gray-100 p-2 rounded-md">
-                    <div><strong>Raw type:</strong> {typeof previewResume.education}</div>
-                    <div><strong>Is Array:</strong> {Array.isArray(previewResume.education) ? 'Yes' : 'No'}</div>
-                    <div><strong>ToString:</strong> {String(previewResume.education).substring(0, 100)}...</div>
-                    <div><strong>JSON:</strong> {JSON.stringify(previewResume.education).substring(0, 100)}...</div>
-                  </div>
                   <div className="mt-2 bg-muted/30 p-4 rounded-md space-y-2">
                     {(() => {
-                      // Try to parse the education if it's a string but contains JSON objects
-                      let educationList: any = previewResume.education;
-                      
-                      if (typeof educationList === 'string') {
-                        try {
-                          // Check if it looks like a JSON array
-                          if (educationList.trim().startsWith('[') && educationList.trim().endsWith(']')) {
-                            const parsed = JSON.parse(educationList);
-                            if (Array.isArray(parsed)) {
-                              educationList = parsed as any;
+                      try {
+                        // Step 1: Get education data in the most versatile format possible
+                        let educationData: any = previewResume.education;
+                        
+                        // If it's a JSON string, parse it
+                        if (typeof educationData === 'string') {
+                          try {
+                            if (educationData.trim().startsWith('[')) {
+                              // It's a JSON array string
+                              educationData = JSON.parse(educationData);
+                            } else if (educationData.includes('[object Object]')) {
+                              // It was an array of objects that got converted to string
+                              // Don't parse it - handle specially below
                             }
-                          } else if (educationList.includes('[object Object]')) {
-                            // If it contains "[object Object]", split by commas as that may be result of array.toString()
-                            return (
-                              <div className="whitespace-pre-wrap text-sm leading-relaxed space-y-2">
-                                {educationList.split(',').map((item, i) => (
-                                  <div key={i} className="pb-2 border-b last:border-b-0 last:pb-0">
-                                    {item.replace('[object Object]', '').trim()}
-                                  </div>
-                                ))}
-                              </div>
-                            );
+                          } catch (e) {
+                            // Not valid JSON, continue with string
                           }
-                        } catch (e) {
-                          // Failed to parse as JSON, just use the string as is
                         }
+                        
+                        // Step 2: Render based on the data type
+                        if (Array.isArray(educationData)) {
+                          // It's an array - render each item
+                          return educationData.map((edu: any, i: number) => (
+                            <div key={i} className="pb-2 border-b last:border-b-0 last:pb-0">
+                              {typeof edu === 'object' && edu !== null ? (
+                                <>
+                                  <div className="font-medium">{edu.institution || edu.school || 'Institution'}</div>
+                                  <div>{edu.qualification || edu.degree || edu.program || 'Qualification'}</div>
+                                  {edu.description && <div className="text-sm text-gray-600 mt-1">{edu.description}</div>}
+                                </>
+                              ) : (
+                                <div>{String(edu)}</div>
+                              )}
+                            </div>
+                          ));
+                        } else if (typeof educationData === 'string' && educationData.includes('[object Object]')) {
+                          // Handle the special case when an array was stringified poorly
+                          return educationData.split('[object Object]')
+                            .filter(item => item.trim() !== '' && item !== ',')
+                            .map((item, i) => (
+                              <div key={i} className="pb-2 border-b last:border-b-0 last:pb-0">
+                                <div>{item.replace(/^,|,$/g, '').trim()}</div>
+                              </div>
+                            ));
+                        } else if (typeof educationData === 'object' && educationData !== null) {
+                          // It's a single object (not common, but possible)
+                          return (
+                            <div className="pb-2">
+                              <div className="font-medium">{educationData.institution || educationData.school || 'Institution'}</div>
+                              <div>{educationData.qualification || educationData.degree || educationData.program || 'Qualification'}</div>
+                              {educationData.description && (
+                                <div className="text-sm text-gray-600 mt-1">{educationData.description}</div>
+                              )}
+                            </div>
+                          );
+                        } else if (typeof educationData === 'string') {
+                          // It's a simple string
+                          return (
+                            <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                              {educationData}
+                            </div>
+                          );
+                        }
+                      } catch (error) {
+                        console.error("Error rendering education:", error);
                       }
                       
-                      // Now handle based on what we have
-                      if (Array.isArray(educationList)) {
-                        return educationList.map((edu: any, i: number) => (
-                          <div key={i} className="pb-2 border-b last:border-b-0 last:pb-0">
-                            {typeof edu === 'object' ? (
-                              <>
-                                <div className="font-medium">{edu.institution || 'Institution'}</div>
-                                <div>{edu.qualification || edu.degree || 'Qualification'}</div>
-                                {edu.description && <div className="text-sm text-gray-600 mt-1">{edu.description}</div>}
-                              </>
-                            ) : (
-                              <div>{edu}</div>
-                            )}
-                          </div>
-                        ));
-                      } else if (typeof educationList === 'string') {
-                        return (
-                          <div className="whitespace-pre-wrap text-sm leading-relaxed">
-                            {educationList}
-                          </div>
-                        );
-                      } else {
-                        return <p className="text-muted-foreground">No education data found</p>;
-                      }
+                      // Fallback if nothing else worked
+                      return (
+                        <div className="text-sm">
+                          {String(previewResume.education).split('[object Object]')
+                            .filter(s => s.trim() !== '' && s !== ',')
+                            .map((s, i) => (
+                              <div key={i} className="pb-2 border-b last:border-b-0 last:pb-0">
+                                {s.replace(/^,|,$/g, '').trim()}
+                              </div>
+                            ))}
+                        </div>
+                      );
                     })()}
                   </div>
                 </div>
