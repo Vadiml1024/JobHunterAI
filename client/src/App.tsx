@@ -13,6 +13,8 @@ import ResumePage from "@/pages/resume-page";
 import JobsPage from "@/pages/jobs-page";
 import ApplicationsPage from "@/pages/applications-page";
 import ProfilePage from "@/pages/profile-page";
+import AnalyticsPage from "@/pages/analytics-page";
+import SkillsPage from "@/pages/skills-page";
 
 function Router() {
   return (
@@ -22,6 +24,8 @@ function Router() {
       <ProtectedRoute path="/jobs" component={JobsPage} />
       <ProtectedRoute path="/applications" component={ApplicationsPage} />
       <ProtectedRoute path="/profile" component={ProfilePage} />
+      <ProtectedRoute path="/analytics" component={AnalyticsPage} />
+      <ProtectedRoute path="/skills" component={SkillsPage} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>
