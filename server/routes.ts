@@ -2,7 +2,7 @@ import express, { type Express, type Request, type Response, type NextFunction }
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth } from "./auth";
-import { insertResumeSchema, insertApplicationSchema, insertJobSchema, insertJobSourceSchema, type Job } from "@shared/schema";
+import { insertResumeSchema, insertApplicationSchema, insertJobSchema, insertJobSourceSchema, type Job, type InsertResume } from "@shared/schema";
 import { z } from "zod";
 import * as llmService from "./llm-service";
 import { LLMProvider, getSkipLocalTextExtraction, setSkipLocalTextExtraction } from "./config";
@@ -83,8 +83,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
               let experienceSection = '';
               if (analysis.experience && analysis.experience.length > 0) {
                 experienceSection = `# Professional Experience\n`;
-                analysis.experience.forEach(exp => {
-                  experienceSection += `- ${exp}\n`;
+                analysis.experience.forEach((exp: any) => {
+                  // Check if the experience entry is an object or string
+                  if (typeof exp === 'object') {
+                    const role = exp.position || exp.role || 'Position';
+                    const company = exp.company || 'Company';
+                    const description = exp.description ? `\n  ${exp.description}` : '';
+                    experienceSection += `- **${role}** at ${company}${description}\n`;
+                  } else {
+                    experienceSection += `- ${exp}\n`;
+                  }
                 });
                 experienceSection += '\n\n';
               }
@@ -92,8 +100,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
               let educationSection = '';
               if (analysis.education && analysis.education.length > 0) {
                 educationSection = `# Education\n`;
-                analysis.education.forEach(edu => {
-                  educationSection += `- ${edu}\n`;
+                analysis.education.forEach((edu: any) => {
+                  // Check if the education entry is an object or string
+                  if (typeof edu === 'object') {
+                    const institution = edu.institution || 'Institution';
+                    const degree = edu.qualification || edu.degree || 'Qualification';
+                    const description = edu.description ? `\n  ${edu.description}` : '';
+                    educationSection += `- **${institution}** - ${degree}${description}\n`;
+                  } else {
+                    educationSection += `- ${edu}\n`;
+                  }
                 });
                 educationSection += '\n\n';
               }
@@ -139,8 +155,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Create resume data object
-      const resumeData = {
+      // Create resume data object with proper typing and extended fields as needed
+      const resumeData: Partial<InsertResume> = {
         userId: req.user.id,
         name,
         language: language || "English",
@@ -149,6 +165,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         skills,
         matchScore
       };
+      
+      // Check if the LLM analysis has been performed and get analysis data from previous scope
+      // This checks both direct file analysis and text-based analysis paths
+      const skipLocalTextExtraction = getSkipLocalTextExtraction();
+      if (skipLocalTextExtraction && req.file) {
+        try {
+          const fileAnalysis = await llmService.analyzeResume({resumeFilePath: req.file.path});
+          
+          // Add additional fields if available
+          if (fileAnalysis) {
+            if (fileAnalysis.experience && Array.isArray(fileAnalysis.experience)) {
+              resumeData.experience = JSON.stringify(fileAnalysis.experience);
+            }
+            
+            if (fileAnalysis.education && Array.isArray(fileAnalysis.education)) {
+              resumeData.education = JSON.stringify(fileAnalysis.education);
+            }
+            
+            if (fileAnalysis.summary) {
+              resumeData.summary = fileAnalysis.summary;
+            }
+          }
+        } catch (analysisError) {
+          console.error("Error analyzing resume for additional data:", analysisError);
+          // Continue without these fields rather than failing the upload
+        }
+      }
       
       // Validate and save
       const validatedData = insertResumeSchema.parse(resumeData);
