@@ -26,9 +26,10 @@ export default function JobSearch({ onSearch }: { onSearch: (filters: any) => vo
   const [activeFilters, setActiveFilters] = useState<Filter[]>([]);
   
   // Get job sources from API
-  const { data: jobSources = [] } = useQuery<JobSource[]>({
+  const { data: jobSources = [], refetch } = useQuery<JobSource[]>({
     queryKey: ['/api/job-sources'],
-    refetchOnWindowFocus: false
+    refetchOnWindowFocus: true,
+    staleTime: 0
   });
 
   // Log job sources for debugging
@@ -159,15 +160,23 @@ export default function JobSearch({ onSearch }: { onSearch: (filters: any) => vo
           {/* Job Source Selection */}
           <div className="md:col-span-3">
             <div className="border rounded-md p-2 h-full">
-              <div className="flex items-center mb-1">
-                <Globe className="mr-2 h-4 w-4 text-gray-400" />
-                <span className="text-sm text-gray-700">Click on badges to select job boards:</span>
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center">
+                  <Globe className="mr-2 h-4 w-4 text-gray-400" />
+                  <span className="text-sm text-gray-700">Click on badges to select job boards:</span>
+                </div>
+                <button 
+                  onClick={() => refetch()} 
+                  className="text-xs text-blue-600 hover:text-blue-800"
+                >
+                  Refresh
+                </button>
               </div>
               <div className="flex flex-wrap gap-2 mt-1">
                 {jobSources && jobSources.length > 0 ? (
-                  jobSources.map(source => (
+                  jobSources.map((source, index) => (
                     <Badge 
-                      key={source.id}
+                      key={`job-source-${source.id}-${index}`}
                       variant={selectedSources.includes(source.id) ? "default" : "outline"}
                       className={`cursor-pointer transition-all hover:scale-105 ${
                         selectedSources.includes(source.id) 
