@@ -297,8 +297,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Add additional fields if available
       if (analysis.summary) updateData.summary = analysis.summary;
-      if (analysis.experience) updateData.experience = analysis.experience;
-      if (analysis.education) updateData.education = analysis.education;
+      
+      // Convert experience array to JSON string if it's an array
+      if (analysis.experience) {
+        if (Array.isArray(analysis.experience)) {
+          updateData.experience = JSON.stringify(analysis.experience);
+          console.log("Stringified experience array:", updateData.experience);
+        } else {
+          updateData.experience = analysis.experience;
+        }
+      }
+      
+      // Convert education array to JSON string if it's an array
+      if (analysis.education) {
+        if (Array.isArray(analysis.education)) {
+          updateData.education = JSON.stringify(analysis.education);
+          console.log("Stringified education array:", updateData.education);
+        } else {
+          updateData.education = analysis.education;
+        }
+      }
       
       const updatedResume = await storage.updateResume(resumeId, updateData);
       
