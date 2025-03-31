@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SiLinkedin, SiIndeed, SiGlassdoor } from "react-icons/si";
 import { useToast } from "@/hooks/use-toast";
+import { queryClient } from "@/lib/queryClient";
 
 interface JobSource {
   id: number;
@@ -33,7 +34,8 @@ export default function JobsPage() {
   // Add default job sources if none exist
   useEffect(() => {
     const setupDefaultSources = async () => {
-      if (jobSources.length === 0) {
+      // Only create job sources if we have data fetched and the array is empty
+      if (jobSources !== undefined && jobSources.length === 0) {
         try {
           // Create default job sources if none exist
           const defaultSources = [
@@ -42,6 +44,7 @@ export default function JobsPage() {
             { name: 'Glassdoor', url: 'https://www.glassdoor.com/Job' }
           ];
           
+          // Create sources one by one
           for (const source of defaultSources) {
             await fetch('/api/job-sources', {
               method: 'POST',
@@ -51,15 +54,26 @@ export default function JobsPage() {
           }
           
           // Invalidate the query to refresh job sources
-          // queryClient.invalidateQueries({ queryKey: ['/api/job-sources'] });
+          queryClient.invalidateQueries({ queryKey: ['/api/job-sources'] });
+          
+          // Show a toast to inform user
+          toast({
+            title: "Job boards initialized",
+            description: "Default job sources have been added. You can now search for jobs."
+          });
         } catch (error) {
           console.error('Failed to create default job sources:', error);
+          toast({
+            title: "Failed to create job sources",
+            description: "Please try refreshing the page.",
+            variant: "destructive"
+          });
         }
       }
     };
     
     setupDefaultSources();
-  }, [jobSources]);
+  }, [jobSources, toast]);
 
   const handleSearch = (filters: any) => {
     // Reset any previous filters

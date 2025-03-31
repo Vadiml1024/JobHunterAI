@@ -158,23 +158,29 @@ export default function JobSearch({ onSearch }: { onSearch: (filters: any) => vo
                 <Globe className="mr-2 h-4 w-4 text-gray-400" />
                 <span className="text-sm text-gray-700">Click on badges to select job boards:</span>
               </div>
-              <div className="flex flex-wrap gap-1 mt-1">
-                {jobSources.map(source => (
-                  <Badge 
-                    key={source.id}
-                    variant={selectedSources.includes(source.id) ? "default" : "outline"}
-                    className={`cursor-pointer transition-all hover:scale-105 ${
-                      selectedSources.includes(source.id) 
-                        ? "bg-primary-500 text-white" 
-                        : "bg-gray-100 hover:bg-gray-200"
-                    }`}
-                    onClick={() => handleSourceToggle(source.id)}
-                  >
-                    {source.name} {selectedSources.includes(source.id) ? 
-                      '✓' : 
-                      <span className="text-xs ml-1 opacity-75">+</span>}
-                  </Badge>
-                ))}
+              <div className="flex flex-wrap gap-2 mt-1">
+                {jobSources && jobSources.length > 0 ? (
+                  jobSources.map(source => (
+                    <Badge 
+                      key={source.id}
+                      variant={selectedSources.includes(source.id) ? "default" : "outline"}
+                      className={`cursor-pointer transition-all hover:scale-105 ${
+                        selectedSources.includes(source.id) 
+                          ? "bg-primary-500 text-white" 
+                          : "bg-gray-100 hover:bg-gray-200"
+                      }`}
+                      onClick={() => handleSourceToggle(source.id)}
+                    >
+                      {source.name} {selectedSources.includes(source.id) ? 
+                        '✓' : 
+                        <span className="text-xs ml-1 opacity-75">+</span>}
+                    </Badge>
+                  ))
+                ) : (
+                  <div className="text-sm text-gray-500 py-1">
+                    Loading job boards...
+                  </div>
+                )}
               </div>
             </div>
           </div>
