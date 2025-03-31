@@ -315,12 +315,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!req.isAuthenticated()) return res.status(401).send("Unauthorized");
     
     try {
-      const { resumeSkills, jobDescription } = req.body;
+      const { resumeSkills, jobDescription, resumeDocument } = req.body;
       if (!resumeSkills || !jobDescription) {
         return res.status(400).send("Resume skills and job description are required");
       }
       
-      const matchResult = await llmService.matchJobSkills(resumeSkills, jobDescription);
+      // Pass the full resume document if available
+      const matchResult = await llmService.matchJobSkills(resumeSkills, jobDescription, resumeDocument);
       res.json(matchResult);
     } catch (error) {
       res.status(500).send((error as Error).message);

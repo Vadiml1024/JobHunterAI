@@ -91,7 +91,7 @@ export async function matchJobSkills(params: MatchJobSkillsParams): Promise<{
   missingSkills: string[]
 }> {
   try {
-    const { resumeSkills, jobDescription, modelName = "gpt-4o", temperature = 0.3 } = params;
+    const { resumeSkills, jobDescription, resumeDocument = "", modelName = "gpt-4o", temperature = 0.3 } = params;
     
     const response = await openai.chat.completions.create({
       model: modelName,
@@ -102,11 +102,13 @@ export async function matchJobSkills(params: MatchJobSkillsParams): Promise<{
         {
           role: "system",
           content:
-            "You are a job matching expert. Given a list of candidate skills and a job description, determine the match percentage, skills that match, and skills that are missing. Respond with JSON in this format: { 'matchPercentage': number, 'matchedSkills': string[], 'missingSkills': string[] }",
+            "You are a job matching expert. Given candidate information and a job description, determine the match percentage, skills that match, and skills that are missing. Extract skills from the resume if provided. Respond with JSON in this format: { 'matchPercentage': number, 'matchedSkills': string[], 'missingSkills': string[] }",
         },
         {
           role: "user",
-          content: `Candidate skills: ${resumeSkills.join(', ')}\n\nJob description: ${jobDescription}`,
+          content: resumeDocument 
+            ? `Full resume document:\n${resumeDocument}\n\nJob description: ${jobDescription}`
+            : `Candidate skills: ${resumeSkills.join(', ')}\n\nJob description: ${jobDescription}`,
         },
       ],
       response_format: { type: "json_object" },

@@ -21,6 +21,7 @@ export interface AnalyzeResumeParams extends BaseLLMParams {
 export interface MatchJobSkillsParams extends BaseLLMParams {
   resumeSkills: string[];
   jobDescription: string;
+  resumeDocument?: string; // Full resume document text to analyze instead of just skills list
   modelName?: string;
 }
 

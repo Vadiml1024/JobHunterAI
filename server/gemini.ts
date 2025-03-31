@@ -140,16 +140,19 @@ export async function matchJobSkills(params: MatchJobSkillsParams): Promise<{
   matchedSkills: string[];
   missingSkills: string[];
 }> {
-  const { resumeSkills, jobDescription, modelName = "gemini-pro", temperature = 0.3 } = params;
+  const { resumeSkills, jobDescription, resumeDocument = "", modelName = "gemini-pro", temperature = 0.3 } = params;
   
   const prompt = `
   You are an AI expert in job matching and skills analysis.
   
-  I have a job description and a list of skills from my resume.
+  I have a job description and my resume.
   
-  Resume skills: ${resumeSkills.join(", ")}
+  ${resumeDocument ? `Full resume document:
+  ${resumeDocument}
   
-  Job description:
+  ` : `Resume skills: ${resumeSkills.join(", ")}
+  
+  `}Job description:
   ${jobDescription}
   
   Please analyze the job description and extract the required skills. Then compare them with my resume skills.

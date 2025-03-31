@@ -109,15 +109,17 @@ export async function analyzeResume(resumeText: string) {
  * Match job skills using the selected LLM provider
  * @param resumeSkills Skills from the user's resume
  * @param jobDescription Job description to analyze
+ * @param resumeDocument Optional full resume text to analyze instead of just skills list
  * @returns Job match analysis
  */
-export async function matchJobSkills(resumeSkills: string[], jobDescription: string) {
+export async function matchJobSkills(resumeSkills: string[], jobDescription: string, resumeDocument?: string) {
   try {
     const modelName = config.providers[currentProvider].currentModel;
     
     const params: MatchJobSkillsParams = {
       resumeSkills,
       jobDescription,
+      resumeDocument,
       modelName
     };
     
