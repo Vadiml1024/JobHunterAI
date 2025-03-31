@@ -149,16 +149,42 @@ export async function analyzeResume(params: AnalyzeResumeParams): Promise<{
         });
         
         const responseText = result.response.text();
+        console.log('Gemini response for direct file analysis:', responseText);
+        
         // Extract the JSON object from the response
         const jsonString = responseText.match(/\{[\s\S]*\}/)?.[0] || "{}";
-        const analysisResult = JSON.parse(jsonString);
+        console.log('Extracted JSON string:', jsonString);
         
-        return {
+        const analysisResult = JSON.parse(jsonString);
+        console.log('Parsed analysis result:', analysisResult);
+        
+        // Check if experience and education are arrays or strings
+        let experienceData = analysisResult.experience || [];
+        let educationData = analysisResult.education || [];
+        
+        // If experience or education is a string, keep it as is
+        if (typeof experienceData === 'string') {
+          experienceData = experienceData;
+        } else if (!Array.isArray(experienceData)) {
+          experienceData = [];
+        }
+        
+        if (typeof educationData === 'string') {
+          educationData = educationData;
+        } else if (!Array.isArray(educationData)) {
+          educationData = [];
+        }
+        
+        const analysisOutput = {
           skills: analysisResult.skills || [],
-          experience: analysisResult.experience || [],
-          education: analysisResult.education || [],
+          experience: experienceData,
+          education: educationData,
           summary: analysisResult.summary || "",
         };
+        
+        console.log('Final analysis result to return:', analysisOutput);
+        
+        return analysisOutput;
         
       } else {
         // Extract text from the file using local processing
@@ -192,7 +218,7 @@ export async function analyzeResume(params: AnalyzeResumeParams): Promise<{
       `;
       
       const model = getGeminiModel(modelName);
-      const result = await model.generateContent({
+      const generationResult = await model.generateContent({
         contents: [{ role: "user", parts: [{ text: prompt }] }],
         generationConfig: {
           ...defaultConfig,
@@ -203,17 +229,43 @@ export async function analyzeResume(params: AnalyzeResumeParams): Promise<{
         },
       });
   
-      const responseText = result.response.text();
+      const responseText = generationResult.response.text();
+      console.log('Gemini response for text analysis:', responseText);
+      
       // Extract the JSON object from the response
       const jsonString = responseText.match(/\{[\s\S]*\}/)?.[0] || "{}";
+      console.log('Extracted JSON string:', jsonString);
+      
       const analysisResult = JSON.parse(jsonString);
-  
-      return {
+      console.log('Parsed analysis result:', analysisResult);
+      
+      // Check if experience and education are arrays or strings
+      let experienceData = analysisResult.experience || [];
+      let educationData = analysisResult.education || [];
+      
+      // If experience or education is a string, keep it as is
+      if (typeof experienceData === 'string') {
+        experienceData = experienceData;
+      } else if (!Array.isArray(experienceData)) {
+        experienceData = [];
+      }
+      
+      if (typeof educationData === 'string') {
+        educationData = educationData;
+      } else if (!Array.isArray(educationData)) {
+        educationData = [];
+      }
+      
+      const textAnalysisOutput = {
         skills: analysisResult.skills || [],
-        experience: analysisResult.experience || [],
-        education: analysisResult.education || [],
+        experience: experienceData,
+        education: educationData,
         summary: analysisResult.summary || "",
       };
+      
+      console.log('Final analysis result to return:', textAnalysisOutput);
+      
+      return textAnalysisOutput;
     }
     
     throw new Error("Failed to process resume input");
