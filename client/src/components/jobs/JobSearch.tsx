@@ -1,11 +1,11 @@
-import { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { Search, MapPin, X, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuery } from "@tanstack/react-query";
+import { JobBoard } from "./JobBoard";
 
 interface Filter {
   id: string;
@@ -31,38 +31,19 @@ export default function JobSearch({ onSearch }: { onSearch: (filters: any) => vo
   });
   
   // Force type the data as JobSource[] and provide a default empty array
-  const jobSources: JobSource[] = data || [];
+  const jobSources: JobSource[] = data as JobSource[] || [];
 
   // Log job sources for debugging
   useEffect(() => {
     console.log("Job sources loaded:", jobSources);
   }, [jobSources]);
 
-  // Set up initial sources when they're loaded
+  // Set first source as default when sources are loaded
   useEffect(() => {
-    // Add debug logging to track job source changes
-    console.log("Job sources updated:", jobSources);
-    
-    // Only execute if we have job sources and no selected sources yet
-    if (jobSources && jobSources.length > 0) {
-      // Ensure user has at least one source selected by default
-      if (selectedSources.length === 0) {
-        console.log("Setting default sources:", [jobSources[0].id]);
-        setSelectedSources([jobSources[0].id]);
-      } else {
-        // Make sure we don't lose selected sources
-        const validSources = selectedSources.filter(sourceId => 
-          jobSources.some(source => source.id === sourceId)
-        );
-        
-        // If we've lost valid sources, reset the selection
-        if (validSources.length === 0 && jobSources.length > 0) {
-          console.log("Restoring default sources:", [jobSources[0].id]);
-          setSelectedSources([jobSources[0].id]);
-        }
-      }
+    if (jobSources.length > 0 && selectedSources.length === 0) {
+      setSelectedSources([jobSources[0].id]);
     }
-  }, [jobSources, selectedSources]);
+  }, [jobSources]);
   
   const handleSearch = () => {
     // Don't search without at least one source
@@ -143,6 +124,27 @@ export default function JobSearch({ onSearch }: { onSearch: (filters: any) => vo
     }
   };
 
+  // Helper to render static job boards
+  const renderJobBoards = () => {
+    // Hardcoded job board names
+    const jobBoardNames = ["LinkedIn", "Indeed", "Glassdoor"];
+    
+    return (
+      <>
+        {jobSources.map((source, index) => (
+          <React.Fragment key={`job-source-${source.id}`}>
+            <JobBoard
+              name={source.name || jobBoardNames[index] || `Job Source ${index + 1}`}
+              id={source.id}
+              isSelected={selectedSources.includes(source.id)}
+              onToggle={handleSourceToggle}
+            />
+          </React.Fragment>
+        ))}
+      </>
+    );
+  };
+
   return (
     <Card className="mb-6">
       <CardContent className="p-4 sm:p-6">
@@ -199,23 +201,7 @@ export default function JobSearch({ onSearch }: { onSearch: (filters: any) => vo
                     Loading job boards...
                   </div>
                 ) : jobSources && jobSources.length > 0 ? (
-                  // Ensure we have a stable render with a memo to preserve job sources
-                  jobSources.map((source, index) => (
-                    <Badge 
-                      key={`job-source-${source.id}-${index}`}
-                      variant={selectedSources.includes(source.id) ? "default" : "outline"}
-                      className={`cursor-pointer transition-all hover:scale-105 ${
-                        selectedSources.includes(source.id) 
-                          ? "bg-primary-500 text-white" 
-                          : "bg-gray-100 hover:bg-gray-200"
-                      }`}
-                      onClick={() => handleSourceToggle(source.id)}
-                    >
-                      {source.name} {selectedSources.includes(source.id) ? 
-                        '✓' : 
-                        <span className="text-xs ml-1 opacity-75">+</span>}
-                    </Badge>
-                  ))
+                  renderJobBoards()
                 ) : (
                   <div className="text-sm text-gray-500 py-1 w-full flex items-center">
                     <span className="inline-block mr-2">⚠️</span>
