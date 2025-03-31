@@ -298,10 +298,22 @@ export default function ResumeList() {
               {previewResume.experience && (
                 <div>
                   <h3 className="text-lg font-medium text-primary">Experience</h3>
-                  <div className="mt-2 bg-muted/30 p-4 rounded-md">
-                    <div className="whitespace-pre-wrap text-sm leading-relaxed">
-                      {previewResume.experience}
-                    </div>
+                  <div className="mt-2 bg-muted/30 p-4 rounded-md space-y-2">
+                    {Array.isArray(previewResume.experience) ? (
+                      previewResume.experience.map((exp: any, i: number) => (
+                        <div key={i} className="pb-2 border-b last:border-b-0 last:pb-0">
+                          <div className="font-medium">{exp.position || exp.role || 'Position'}</div>
+                          <div>{exp.company || 'Company'}</div>
+                          {exp.description && <div className="text-sm text-gray-600 mt-1">{exp.description}</div>}
+                        </div>
+                      ))
+                    ) : typeof previewResume.experience === 'string' ? (
+                      <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                        {previewResume.experience}
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground">No experience data found</p>
+                    )}
                   </div>
                 </div>
               )}
@@ -309,10 +321,22 @@ export default function ResumeList() {
               {previewResume.education && (
                 <div>
                   <h3 className="text-lg font-medium text-primary">Education</h3>
-                  <div className="mt-2 bg-muted/30 p-4 rounded-md">
-                    <div className="whitespace-pre-wrap text-sm leading-relaxed">
-                      {previewResume.education}
-                    </div>
+                  <div className="mt-2 bg-muted/30 p-4 rounded-md space-y-2">
+                    {Array.isArray(previewResume.education) ? (
+                      previewResume.education.map((edu: any, i: number) => (
+                        <div key={i} className="pb-2 border-b last:border-b-0 last:pb-0">
+                          <div className="font-medium">{edu.institution || 'Institution'}</div>
+                          <div>{edu.qualification || edu.degree || 'Qualification'}</div>
+                          {edu.description && <div className="text-sm text-gray-600 mt-1">{edu.description}</div>}
+                        </div>
+                      ))
+                    ) : typeof previewResume.education === 'string' ? (
+                      <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                        {previewResume.education}
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground">No education data found</p>
+                    )}
                   </div>
                 </div>
               )}
