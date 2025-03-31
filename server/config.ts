@@ -26,9 +26,9 @@ const geminiAvailable = !!process.env.GEMINI_API_KEY;
 
 // Set default provider based on available API keys
 const getDefaultProvider = (): LLMProvider => {
-  if (openaiAvailable) return "openai";
   if (geminiAvailable) return "gemini";
-  return "openai"; // Default fallback
+  if (openaiAvailable) return "openai";
+  return "gemini"; // Default fallback
 };
 
 // Create the initial configuration
@@ -39,17 +39,17 @@ export const config: Config = {
       available: openaiAvailable,
       defaultModel: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024
       models: ["gpt-4o", "gpt-3.5-turbo", "gpt-4-turbo"],
-      currentModel: "gpt-4o"
+      currentModel: "gpt-4o",
     },
     gemini: {
       available: geminiAvailable,
       defaultModel: "gemini-pro",
-      models: ["gemini-pro", "gemini-pro-vision"],
-      currentModel: "gemini-pro"
+      models: ["gemini-2.5-pro-exp-03-25", "gemini-pro", "gemini-pro-vision"],
+      currentModel: "gemini-2.5-pro-exp-03-25",
     },
   },
   features: {
-    skipLocalTextExtraction: false // Default to false, extract text locally first
+    skipLocalTextExtraction: true, // Default to false, extract text locally first
   },
 };
 
@@ -60,15 +60,15 @@ export const config: Config = {
 export function updateGeminiModels(models: string[]) {
   if (models && models.length > 0) {
     // Keep the current model if it's in the new list, otherwise use first model
-    const currentModel = models.includes(config.providers.gemini.currentModel) 
-      ? config.providers.gemini.currentModel 
+    const currentModel = models.includes(config.providers.gemini.currentModel)
+      ? config.providers.gemini.currentModel
       : models[0];
-      
+
     // Update the configuration
     config.providers.gemini.models = models;
     config.providers.gemini.currentModel = currentModel;
-    
-    console.log(`Updated Gemini models: ${models.join(', ')}`);
+
+    console.log(`Updated Gemini models: ${models.join(", ")}`);
   }
 }
 
@@ -80,32 +80,36 @@ export function updateOpenAIModels(models: string[]) {
   if (models && models.length > 0) {
     // Add default models if they're not in the API result (sometimes API doesn't return them all)
     const defaultModels = ["gpt-4o", "gpt-3.5-turbo", "gpt-4-turbo"];
-    
+
     // Merge and deduplicate arrays without using Set spread
     const combinedModels: string[] = [];
     // Add default models first
-    defaultModels.forEach(model => {
+    defaultModels.forEach((model) => {
       if (!combinedModels.includes(model)) {
         combinedModels.push(model);
       }
     });
     // Add API-fetched models
-    models.forEach(model => {
+    models.forEach((model) => {
       if (!combinedModels.includes(model)) {
         combinedModels.push(model);
       }
     });
-    
+
     // Keep the current model if it's in the new list, otherwise use gpt-4o
-    const currentModel = combinedModels.includes(config.providers.openai.currentModel) 
-      ? config.providers.openai.currentModel 
+    const currentModel = combinedModels.includes(
+      config.providers.openai.currentModel,
+    )
+      ? config.providers.openai.currentModel
       : "gpt-4o";
-      
+
     // Update the configuration
     config.providers.openai.models = combinedModels;
     config.providers.openai.currentModel = currentModel;
-    
-    console.log(`Updated OpenAI models: ${combinedModels.length} models available`);
+
+    console.log(
+      `Updated OpenAI models: ${combinedModels.length} models available`,
+    );
   }
 }
 
@@ -127,7 +131,9 @@ export function getAvailableProviders(): LLMProvider[] {
  */
 export function setSkipLocalTextExtraction(skip: boolean): void {
   config.features.skipLocalTextExtraction = skip;
-  console.log(`${skip ? 'Enabled' : 'Disabled'} direct file processing by LLMs`);
+  console.log(
+    `${skip ? "Enabled" : "Disabled"} direct file processing by LLMs`,
+  );
 }
 
 /**
