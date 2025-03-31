@@ -22,7 +22,7 @@ export default function JobList({ filters }: JobListProps) {
   // Use this query for database jobs
   const { data: dbJobs, isLoading: isDbLoading } = useQuery<Job[]>({
     queryKey: ["/api/jobs", filters],
-    enabled: !isExternalSearch && !filters?.sourceId, // Only run if not using job board API
+    enabled: !isExternalSearch && (!filters?.sourceIds || filters?.sourceIds.length === 0), // Only run if not using job board API
     queryFn: async ({ queryKey }) => {
       const [endpoint, filterParams] = queryKey;
       

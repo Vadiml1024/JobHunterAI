@@ -156,17 +156,23 @@ export default function JobSearch({ onSearch }: { onSearch: (filters: any) => vo
             <div className="border rounded-md p-2 h-full">
               <div className="flex items-center mb-1">
                 <Globe className="mr-2 h-4 w-4 text-gray-400" />
-                <span className="text-sm text-gray-700">Select Job Boards:</span>
+                <span className="text-sm text-gray-700">Click on badges to select job boards:</span>
               </div>
               <div className="flex flex-wrap gap-1 mt-1">
                 {jobSources.map(source => (
                   <Badge 
                     key={source.id}
                     variant={selectedSources.includes(source.id) ? "default" : "outline"}
-                    className="cursor-pointer"
+                    className={`cursor-pointer transition-all hover:scale-105 ${
+                      selectedSources.includes(source.id) 
+                        ? "bg-primary-500 text-white" 
+                        : "bg-gray-100 hover:bg-gray-200"
+                    }`}
                     onClick={() => handleSourceToggle(source.id)}
                   >
-                    {source.name}
+                    {source.name} {selectedSources.includes(source.id) ? 
+                      '✓' : 
+                      <span className="text-xs ml-1 opacity-75">+</span>}
                   </Badge>
                 ))}
               </div>
@@ -192,13 +198,19 @@ export default function JobSearch({ onSearch }: { onSearch: (filters: any) => vo
             <Badge 
               key={filter.id}
               variant={activeFilters.some(f => f.id === filter.id) ? "default" : "outline"}
-              className="cursor-pointer"
+              className={`cursor-pointer transition-all hover:scale-105 ${
+                activeFilters.some(f => f.id === filter.id) 
+                  ? "bg-primary-500 text-white" 
+                  : "bg-gray-100 hover:bg-gray-200"
+              }`}
               onClick={() => activeFilters.some(f => f.id === filter.id) 
                 ? removeFilter(filter.id) 
                 : addFilter(filter)
               }
             >
-              {filter.label}
+              {filter.label} {activeFilters.some(f => f.id === filter.id) ? 
+                '✓' : 
+                <span className="text-xs ml-1 opacity-75">+</span>}
             </Badge>
           ))}
           
@@ -207,13 +219,19 @@ export default function JobSearch({ onSearch }: { onSearch: (filters: any) => vo
             <Badge 
               key={filter.id}
               variant={activeFilters.some(f => f.id === filter.id) ? "default" : "outline"}
-              className="cursor-pointer"
+              className={`cursor-pointer transition-all hover:scale-105 ${
+                activeFilters.some(f => f.id === filter.id) 
+                  ? "bg-primary-500 text-white" 
+                  : "bg-gray-100 hover:bg-gray-200"
+              }`}
               onClick={() => activeFilters.some(f => f.id === filter.id) 
                 ? removeFilter(filter.id) 
                 : addFilter(filter)
               }
             >
-              {filter.label}
+              {filter.label} {activeFilters.some(f => f.id === filter.id) ? 
+                '✓' : 
+                <span className="text-xs ml-1 opacity-75">+</span>}
             </Badge>
           ))}
         </div>

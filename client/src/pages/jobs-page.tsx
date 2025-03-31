@@ -67,12 +67,12 @@ export default function JobsPage() {
   };
 
   const handleApplyFilters = (filters: any) => {
-    // Keep sourceId and query from search, add other filters
+    // Keep sourceIds and query from search, add other filters
     setSearchFilters((prev: any) => {
-      const { sourceId, query } = prev;
+      const { sourceIds, query } = prev;
       return { 
         ...filters,
-        ...(sourceId && query ? { sourceId, query } : {})
+        ...(sourceIds && sourceIds.length > 0 && query ? { sourceIds, query } : {})
       };
     });
   };
