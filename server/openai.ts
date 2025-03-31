@@ -6,6 +6,7 @@ import {
   ChatParams, 
   ImprovementParams 
 } from "./llm-params";
+import { extractTextFromFile } from "./upload";
 
 // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -43,6 +44,7 @@ export async function fetchOpenAIModels(): Promise<string[]> {
 }
 
 // Analyze resume and extract skills
+
 export async function analyzeResume(params: AnalyzeResumeParams): Promise<{
   skills: string[],
   experience: string[],
@@ -50,7 +52,20 @@ export async function analyzeResume(params: AnalyzeResumeParams): Promise<{
   summary: string
 }> {
   try {
-    const { resumeText, modelName = "gpt-4o", temperature = 0.2 } = params;
+    const { resumeText, resumeFilePath, modelName = "gpt-4o", temperature = 0.2 } = params;
+    
+    // Get the resume content - either from the provided text or by extracting from a file
+    let resumeContent: string;
+    
+    if (resumeFilePath) {
+      // Extract text from the file
+      resumeContent = await extractTextFromFile(resumeFilePath);
+    } else if (resumeText) {
+      // Use the provided resume text
+      resumeContent = resumeText;
+    } else {
+      throw new Error("Either resumeText or resumeFilePath must be provided");
+    }
     
     const response = await openai.chat.completions.create({
       model: modelName,
@@ -65,7 +80,7 @@ export async function analyzeResume(params: AnalyzeResumeParams): Promise<{
         },
         {
           role: "user",
-          content: resumeText,
+          content: resumeContent,
         },
       ],
       response_format: { type: "json_object" },
@@ -91,7 +106,20 @@ export async function matchJobSkills(params: MatchJobSkillsParams): Promise<{
   missingSkills: string[]
 }> {
   try {
-    const { resumeSkills, jobDescription, resumeDocument = "", modelName = "gpt-4o", temperature = 0.3 } = params;
+    const { 
+      resumeSkills, 
+      jobDescription, 
+      resumeDocument = "", 
+      resumeFilePath = "",
+      modelName = "gpt-4o", 
+      temperature = 0.3 
+    } = params;
+    
+    // Get the resume content if a file path is provided
+    let fullResumeContent = resumeDocument;
+    if (resumeFilePath && !resumeDocument) {
+      fullResumeContent = await extractTextFromFile(resumeFilePath);
+    }
     
     const response = await openai.chat.completions.create({
       model: modelName,
@@ -106,8 +134,8 @@ export async function matchJobSkills(params: MatchJobSkillsParams): Promise<{
         },
         {
           role: "user",
-          content: resumeDocument 
-            ? `Full resume document:\n${resumeDocument}\n\nJob description: ${jobDescription}`
+          content: fullResumeContent 
+            ? `Full resume document:\n${fullResumeContent}\n\nJob description: ${jobDescription}`
             : `Candidate skills: ${resumeSkills.join(', ')}\n\nJob description: ${jobDescription}`,
         },
       ],

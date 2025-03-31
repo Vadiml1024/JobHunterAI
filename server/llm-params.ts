@@ -13,7 +13,8 @@ export interface BaseLLMParams {
 
 // Parameters for analyzeResume
 export interface AnalyzeResumeParams extends BaseLLMParams {
-  resumeText: string;
+  resumeText?: string;
+  resumeFilePath?: string; // Path to the original resume file
   modelName?: string;
 }
 
@@ -22,6 +23,7 @@ export interface MatchJobSkillsParams extends BaseLLMParams {
   resumeSkills: string[];
   jobDescription: string;
   resumeDocument?: string; // Full resume document text to analyze instead of just skills list
+  resumeFilePath?: string; // Path to the original resume file
   modelName?: string;
 }
 

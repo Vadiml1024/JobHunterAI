@@ -74,20 +74,35 @@ export async function fetchGeminiModels(): Promise<string[]> {
  * @param params Parameters for resume analysis
  * @returns Analysis results including skills, experience, education and summary
  */
+import { extractTextFromFile } from './upload';
+
 export async function analyzeResume(params: AnalyzeResumeParams): Promise<{
   skills: string[];
   experience: string[];
   education: string[];
   summary: string;
 }> {
-  const { resumeText, modelName = "gemini-pro", temperature = 0.2 } = params;
+  const { resumeText, resumeFilePath, modelName = "gemini-pro", temperature = 0.2 } = params;
+  
+  // Get the resume content - either from the provided text or by extracting from a file
+  let resumeContent: string;
+  
+  if (resumeFilePath) {
+    // Extract text from the file
+    resumeContent = await extractTextFromFile(resumeFilePath);
+  } else if (resumeText) {
+    // Use the provided resume text
+    resumeContent = resumeText;
+  } else {
+    throw new Error("Either resumeText or resumeFilePath must be provided");
+  }
   
   const prompt = `
   You are an expert resume analyst with years of experience in HR and recruitment.
   Please analyze the following resume and extract key information.
   
   Resume text:
-  ${resumeText}
+  ${resumeContent}
   
   Please extract and return ONLY a JSON object with the following structure:
   {
@@ -140,15 +155,28 @@ export async function matchJobSkills(params: MatchJobSkillsParams): Promise<{
   matchedSkills: string[];
   missingSkills: string[];
 }> {
-  const { resumeSkills, jobDescription, resumeDocument = "", modelName = "gemini-pro", temperature = 0.3 } = params;
+  const { 
+    resumeSkills, 
+    jobDescription, 
+    resumeDocument = "", 
+    resumeFilePath = "",
+    modelName = "gemini-pro", 
+    temperature = 0.3 
+  } = params;
+  
+  // Get the resume content if a file path is provided
+  let fullResumeContent = resumeDocument;
+  if (resumeFilePath && !resumeDocument) {
+    fullResumeContent = await extractTextFromFile(resumeFilePath);
+  }
   
   const prompt = `
   You are an AI expert in job matching and skills analysis.
   
   I have a job description and my resume.
   
-  ${resumeDocument ? `Full resume document:
-  ${resumeDocument}
+  ${fullResumeContent ? `Full resume document:
+  ${fullResumeContent}
   
   ` : `Resume skills: ${resumeSkills.join(", ")}
   
