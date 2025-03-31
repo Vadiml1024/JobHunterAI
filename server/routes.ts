@@ -303,6 +303,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (Array.isArray(analysis.experience)) {
           updateData.experience = JSON.stringify(analysis.experience);
           console.log("Stringified experience array:", updateData.experience);
+          
+          // Update content field with formatted experience
+          let formattedContent = resume.content || "";
+          
+          // If content already contains the "Professional Experience" section with [object Object]
+          if (formattedContent.includes("# Professional Experience")) {
+            // Replace the experience section with a properly formatted version
+            const experienceRegex = /(# Professional Experience\s*\n)([^#]*)/;
+            let experienceSection = "# Professional Experience\n";
+            
+            analysis.experience.forEach((exp: any) => {
+              experienceSection += `- **${exp.position || exp.role}** at ${exp.company}\n`;
+              if (exp.description) {
+                experienceSection += `  ${exp.description}\n`;
+              }
+              experienceSection += "\n";
+            });
+            
+            formattedContent = formattedContent.replace(experienceRegex, `$1${experienceSection}`);
+          }
+          
+          updateData.content = formattedContent;
         } else {
           updateData.experience = analysis.experience;
         }
@@ -313,6 +335,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (Array.isArray(analysis.education)) {
           updateData.education = JSON.stringify(analysis.education);
           console.log("Stringified education array:", updateData.education);
+          
+          // Update content field with formatted education
+          let formattedContent = updateData.content || resume.content || "";
+          
+          // If content already contains the "Education" section with [object Object]
+          if (formattedContent.includes("# Education")) {
+            // Replace the education section with a properly formatted version
+            const educationRegex = /(# Education\s*\n)([^#]*)/;
+            let educationSection = "# Education\n";
+            
+            analysis.education.forEach((edu: any) => {
+              educationSection += `- **${edu.institution}** - ${edu.qualification || edu.degree}\n`;
+              if (edu.description) {
+                educationSection += `  ${edu.description}\n`;
+              }
+              educationSection += "\n";
+            });
+            
+            formattedContent = formattedContent.replace(educationRegex, `$1${educationSection}`);
+          }
+          
+          updateData.content = formattedContent;
         } else {
           updateData.education = analysis.education;
         }
