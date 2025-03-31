@@ -72,12 +72,8 @@ export default function JobsPage() {
       }
     };
     
-    // Only run this effect once when the component mounts
-    const hasSetupRun = localStorage.getItem('jobSourcesInitialized');
-    if (!hasSetupRun) {
-      setupDefaultSources();
-      localStorage.setItem('jobSourcesInitialized', 'true');
-    }
+    // Always setup default sources if none exist
+    setupDefaultSources();
   }, [jobSources, toast]);
 
   const handleSearch = (filters: any) => {
