@@ -81,6 +81,11 @@ export default function ResumeList() {
   };
   
   const handlePreview = (resume: Resume) => {
+    console.log("Preview resume data:", resume);
+    console.log("Experience type:", typeof resume.experience);
+    console.log("Experience value:", resume.experience);
+    console.log("Education type:", typeof resume.education);
+    console.log("Education value:", resume.education);
     setPreviewResume(resume);
   };
   
@@ -308,21 +313,29 @@ export default function ResumeList() {
                         </div>
                       ))
                     ) : typeof previewResume.experience === 'string' ? (
-                      <div className="whitespace-pre-wrap text-sm leading-relaxed">
-                        {previewResume.experience}
-                      </div>
-                    ) : previewResume.experience && typeof previewResume.experience === 'object' ? (
-                      // Handle when experience is an object (not an array or string)
-                      Object.entries(previewResume.experience).map(([key, value], i) => {
-                        const exp = value as Record<string, any>;
-                        return (
-                          <div key={i} className="pb-2 border-b last:border-b-0 last:pb-0">
-                            <div className="font-medium">{exp.position || exp.role || key || 'Position'}</div>
-                            <div>{exp.company || 'Company'}</div>
-                            {exp.description && <div className="text-sm text-gray-600 mt-1">{exp.description}</div>}
-                          </div>
-                        );
-                      })
+                      (() => {
+                        console.log("Experience is a string:", previewResume.experience);
+                        try {
+                          // Try to parse it as JSON string
+                          const parsedExperience = JSON.parse(previewResume.experience);
+                          console.log("Parsed experience:", parsedExperience);
+                          
+                          if (Array.isArray(parsedExperience)) {
+                            return parsedExperience.map((exp: any, i: number) => (
+                              <div key={i} className="pb-2 border-b last:border-b-0 last:pb-0">
+                                <div className="font-medium">{exp.position || exp.role || 'Position'}</div>
+                                <div>{exp.company || 'Company'}</div>
+                                {exp.description && <div className="text-sm text-gray-600 mt-1">{exp.description}</div>}
+                              </div>
+                            ));
+                          } else {
+                            return <div className="whitespace-pre-wrap text-sm leading-relaxed">{previewResume.experience}</div>;
+                          }
+                        } catch (e) {
+                          console.log("Error parsing experience:", e);
+                          return <div className="whitespace-pre-wrap text-sm leading-relaxed">{previewResume.experience}</div>;
+                        }
+                      })()
                     ) : (
                       <p className="text-muted-foreground">No experience data found</p>
                     )}
@@ -343,12 +356,33 @@ export default function ResumeList() {
                         </div>
                       ))
                     ) : typeof previewResume.education === 'string' ? (
-                      <div className="whitespace-pre-wrap text-sm leading-relaxed">
-                        {previewResume.education}
-                      </div>
+                      (() => {
+                        console.log("Education is a string:", previewResume.education);
+                        try {
+                          // Try to parse it as JSON string
+                          const parsedEducation = JSON.parse(previewResume.education);
+                          console.log("Parsed education:", parsedEducation);
+                          
+                          if (Array.isArray(parsedEducation)) {
+                            return parsedEducation.map((edu: any, i: number) => (
+                              <div key={i} className="pb-2 border-b last:border-b-0 last:pb-0">
+                                <div className="font-medium">{edu.institution || 'Institution'}</div>
+                                <div>{edu.qualification || edu.degree || 'Qualification'}</div>
+                                {edu.description && <div className="text-sm text-gray-600 mt-1">{edu.description}</div>}
+                              </div>
+                            ));
+                          } else {
+                            return <div className="whitespace-pre-wrap text-sm leading-relaxed">{previewResume.education}</div>;
+                          }
+                        } catch (e) {
+                          console.log("Error parsing education:", e);
+                          return <div className="whitespace-pre-wrap text-sm leading-relaxed">{previewResume.education}</div>;
+                        }
+                      })()
                     ) : previewResume.education && typeof previewResume.education === 'object' ? (
                       // Handle when education is an object (not an array or string)
                       Object.entries(previewResume.education).map(([key, value], i) => {
+                        console.log(`Education entry ${i}:`, key, value);
                         const edu = value as Record<string, any>;
                         return (
                           <div key={i} className="pb-2 border-b last:border-b-0 last:pb-0">
