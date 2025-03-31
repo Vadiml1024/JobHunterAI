@@ -1,7 +1,6 @@
 import { config, LLMProvider, ProviderConfig, updateGeminiModels, updateOpenAIModels } from "./config";
 import * as openaiService from "./openai";
 import * as geminiService from "./gemini";
-import { ChatMessage } from "../client/src/types";
 import { 
   AnalyzeResumeParams, 
   MatchJobSkillsParams, 
@@ -9,6 +8,12 @@ import {
   ChatParams, 
   ImprovementParams 
 } from "./llm-params";
+
+// Define the ChatMessage type locally to avoid dependency
+interface ChatMessage {
+  role: string;
+  content: string;
+}
 
 // Default provider from config
 let currentProvider: LLMProvider = config.defaultLLMProvider;
@@ -247,6 +252,9 @@ export function getProvidersInfo() {
         models: config.providers.gemini.models,
         currentModel: config.providers.gemini.currentModel
       }
+    },
+    features: {
+      skipLocalTextExtraction: config.features.skipLocalTextExtraction
     }
   };
 }

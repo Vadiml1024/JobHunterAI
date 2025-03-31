@@ -6,6 +6,7 @@ import {
   ChatParams, 
   ImprovementParams 
 } from "./llm-params";
+import { config } from "./config";
 
 // Initialize the Google Generative AI with the API key
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
@@ -84,36 +85,80 @@ export async function analyzeResume(params: AnalyzeResumeParams): Promise<{
 }> {
   const { resumeText, resumeFilePath, modelName = "gemini-pro", temperature = 0.2 } = params;
   
-  // Get the resume content - either from the provided text or by extracting from a file
+  // Check if we should skip local text extraction
+  const skipLocalTextExtraction = config.features.skipLocalTextExtraction;
+  
+  // Handle different resume input methods based on settings
   let resumeContent: string;
+  let prompt: string;
   
   if (resumeFilePath) {
-    // Extract text from the file
-    resumeContent = await extractTextFromFile(resumeFilePath);
+    if (skipLocalTextExtraction) {
+      // Skip local text extraction and use direct file processing approach
+      console.log(`Using direct file processing for resume analysis with Gemini: ${resumeFilePath}`);
+      
+      // For Gemini, we'll use a different approach since we can't directly send files like with OpenAI
+      // Instead, we'll create a prompt instructing it to parse the document from the bytes
+      prompt = `
+      You are an expert resume analyst with years of experience in HR and recruitment.
+      Please analyze the resume document I've uploaded and extract key information.
+      
+      Please extract and return ONLY a JSON object with the following structure:
+      {
+        "skills": [array of technical and soft skills present in the resume],
+        "experience": [array of work experiences with company and position],
+        "education": [array of educational qualifications],
+        "summary": "brief professional summary based on the resume"
+      }
+      
+      Return ONLY the JSON object, no other text.
+      `;
+    } else {
+      // Extract text from the file using local processing
+      resumeContent = await extractTextFromFile(resumeFilePath);
+      
+      prompt = `
+      You are an expert resume analyst with years of experience in HR and recruitment.
+      Please analyze the following resume and extract key information.
+      
+      Resume text:
+      ${resumeContent}
+      
+      Please extract and return ONLY a JSON object with the following structure:
+      {
+        "skills": [array of technical and soft skills present in the resume],
+        "experience": [array of work experiences with company and position],
+        "education": [array of educational qualifications],
+        "summary": "brief professional summary based on the resume"
+      }
+      
+      Return ONLY the JSON object, no other text.
+      `;
+    }
   } else if (resumeText) {
     // Use the provided resume text
     resumeContent = resumeText;
+    
+    prompt = `
+    You are an expert resume analyst with years of experience in HR and recruitment.
+    Please analyze the following resume and extract key information.
+    
+    Resume text:
+    ${resumeContent}
+    
+    Please extract and return ONLY a JSON object with the following structure:
+    {
+      "skills": [array of technical and soft skills present in the resume],
+      "experience": [array of work experiences with company and position],
+      "education": [array of educational qualifications],
+      "summary": "brief professional summary based on the resume"
+    }
+    
+    Return ONLY the JSON object, no other text.
+    `;
   } else {
     throw new Error("Either resumeText or resumeFilePath must be provided");
   }
-  
-  const prompt = `
-  You are an expert resume analyst with years of experience in HR and recruitment.
-  Please analyze the following resume and extract key information.
-  
-  Resume text:
-  ${resumeContent}
-  
-  Please extract and return ONLY a JSON object with the following structure:
-  {
-    "skills": [array of technical and soft skills present in the resume],
-    "experience": [array of work experiences with company and position],
-    "education": [array of educational qualifications],
-    "summary": "brief professional summary based on the resume"
-  }
-  
-  Return ONLY the JSON object, no other text.
-  `;
 
   try {
     const model = getGeminiModel(modelName);
@@ -164,36 +209,71 @@ export async function matchJobSkills(params: MatchJobSkillsParams): Promise<{
     temperature = 0.3 
   } = params;
   
-  // Get the resume content if a file path is provided
-  let fullResumeContent = resumeDocument;
-  if (resumeFilePath && !resumeDocument) {
-    fullResumeContent = await extractTextFromFile(resumeFilePath);
+  // Check if we should skip local text extraction
+  const skipLocalTextExtraction = config.features.skipLocalTextExtraction;
+  
+  let prompt: string;
+  
+  // Handle different resume input scenarios
+  if (resumeFilePath && skipLocalTextExtraction) {
+    // For direct file analysis, we need a special approach with Gemini
+    console.log(`Using direct file processing for job skills matching with Gemini: ${resumeFilePath}`);
+    
+    prompt = `
+    You are an AI expert in job matching and skills analysis.
+    
+    I have a job description and my resume document.
+    
+    For this job description:
+    ${jobDescription}
+    
+    And the uploaded resume document, please:
+    1. Analyze the job description and extract the required skills
+    2. Analyze the resume and extract skills
+    3. Compare the skills and determine matches
+    
+    Return ONLY a JSON object with the following structure:
+    {
+      "requiredSkills": [array of skills required for the job],
+      "matchedSkills": [array of skills from my resume that match the job requirements],
+      "missingSkills": [array of skills required for the job that are missing from my resume],
+      "matchPercentage": numerical percentage of how well my skills match the job requirements
+    }
+    
+    Return ONLY the JSON object, no other text.
+    `;
+  } else {
+    // Standard text-based approach
+    let fullResumeContent = resumeDocument;
+    if (resumeFilePath && !resumeDocument) {
+      fullResumeContent = await extractTextFromFile(resumeFilePath);
+    }
+    
+    prompt = `
+    You are an AI expert in job matching and skills analysis.
+    
+    I have a job description and my resume.
+    
+    ${fullResumeContent ? `Full resume document:
+    ${fullResumeContent}
+    
+    ` : `Resume skills: ${resumeSkills.join(", ")}
+    
+    `}Job description:
+    ${jobDescription}
+    
+    Please analyze the job description and extract the required skills. Then compare them with my resume skills.
+    Return ONLY a JSON object with the following structure:
+    {
+      "requiredSkills": [array of skills required for the job],
+      "matchedSkills": [array of my skills that match the job requirements],
+      "missingSkills": [array of skills required for the job that are missing from my resume],
+      "matchPercentage": numerical percentage of how well my skills match the job requirements
+    }
+    
+    Return ONLY the JSON object, no other text.
+    `;
   }
-  
-  const prompt = `
-  You are an AI expert in job matching and skills analysis.
-  
-  I have a job description and my resume.
-  
-  ${fullResumeContent ? `Full resume document:
-  ${fullResumeContent}
-  
-  ` : `Resume skills: ${resumeSkills.join(", ")}
-  
-  `}Job description:
-  ${jobDescription}
-  
-  Please analyze the job description and extract the required skills. Then compare them with my resume skills.
-  Return ONLY a JSON object with the following structure:
-  {
-    "requiredSkills": [array of skills required for the job],
-    "matchedSkills": [array of my skills that match the job requirements],
-    "missingSkills": [array of skills required for the job that are missing from my resume],
-    "matchPercentage": numerical percentage of how well my skills match the job requirements
-  }
-  
-  Return ONLY the JSON object, no other text.
-  `;
 
   try {
     const model = getGeminiModel(modelName);

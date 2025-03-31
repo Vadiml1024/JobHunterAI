@@ -15,6 +15,9 @@ interface Config {
     openai: ProviderConfig;
     gemini: ProviderConfig;
   };
+  features: {
+    skipLocalTextExtraction: boolean; // When true, send original file to LLM instead of extracting text locally
+  };
 }
 
 // Check if API keys are available
@@ -44,6 +47,9 @@ export const config: Config = {
       models: ["gemini-pro", "gemini-pro-vision"],
       currentModel: "gemini-pro"
     },
+  },
+  features: {
+    skipLocalTextExtraction: false // Default to false, extract text locally first
   },
 };
 
@@ -113,4 +119,21 @@ export function getAvailableProviders(): LLMProvider[] {
   return Object.entries(config.providers)
     .filter(([_, value]) => value.available)
     .map(([key]) => key as LLMProvider);
+}
+
+/**
+ * Updates the setting to skip local text extraction
+ * @param skip Whether to skip local text extraction and send original files to LLMs
+ */
+export function setSkipLocalTextExtraction(skip: boolean): void {
+  config.features.skipLocalTextExtraction = skip;
+  console.log(`${skip ? 'Enabled' : 'Disabled'} direct file processing by LLMs`);
+}
+
+/**
+ * Gets the current setting for skipping local text extraction
+ * @returns The current setting value
+ */
+export function getSkipLocalTextExtraction(): boolean {
+  return config.features.skipLocalTextExtraction;
 }

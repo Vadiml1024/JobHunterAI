@@ -5,12 +5,13 @@ import { setupAuth } from "./auth";
 import { insertResumeSchema, insertApplicationSchema, insertJobSchema, insertJobSourceSchema, type Job } from "@shared/schema";
 import { z } from "zod";
 import * as llmService from "./llm-service";
-import { LLMProvider } from "./config";
+import { LLMProvider, getSkipLocalTextExtraction, setSkipLocalTextExtraction } from "./config";
 import { upload, extractTextFromFile } from "./upload";
 import { fetchLinkedInProfile, exportResumeToLinkedIn } from "./linkedin";
 import * as calendar from "./calendar";
 import { createJobBoardConnector, convertToInsertJob } from "./jobboards";
 import path from "path";
+import fs from "fs";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Sets up /api/register, /api/login, /api/logout, /api/user
@@ -60,20 +61,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // If a file was uploaded, save its path and extract content
       if (req.file) {
         fileUrl = `/uploads/${path.basename(req.file.path)}`;
-        content = await extractTextFromFile(req.file.path);
+        const skipLocalTextExtraction = getSkipLocalTextExtraction();
         
-        // If we have content, analyze it to extract skills
-        if (content) {
+        if (skipLocalTextExtraction) {
+          // If we're skipping local text extraction, analyze the file directly
           try {
-            console.log("Analyzing resume content to extract skills...");
-            const analysis = await llmService.analyzeResume(content);
-            if (analysis && analysis.skills && Array.isArray(analysis.skills)) {
-              skills = analysis.skills;
-              console.log(`Extracted ${skills.length} skills from resume`);
+            console.log("Analyzing resume file directly with LLM...");
+            const analysis = await llmService.analyzeResume({resumeFilePath: req.file.path});
+            
+            // Still store extracted text for display and future use
+            if (analysis) {
+              // Extract and store the skills
+              if (analysis.skills && Array.isArray(analysis.skills)) {
+                skills = analysis.skills;
+                console.log(`Extracted ${skills.length} skills from resume`);
+              }
+              
+              // Generate a text representation for storage
+              // This combines the extracted components into a readable format
+              const summaryText = analysis.summary || '';
+              const expText = analysis.experience ? analysis.experience.join('\n\n') : '';
+              const eduText = analysis.education ? analysis.education.join('\n\n') : '';
+              const skillsText = analysis.skills ? 'Skills: ' + analysis.skills.join(', ') : '';
+              
+              content = `${summaryText}\n\n${expText}\n\n${eduText}\n\n${skillsText}`;
             }
           } catch (analysisError) {
-            console.error("Error analyzing resume:", analysisError);
-            // Continue without skills rather than failing the upload
+            console.error("Error analyzing resume with LLM:", analysisError);
+            // Fall back to local text extraction if LLM analysis fails
+            content = await extractTextFromFile(req.file.path);
+          }
+        } else {
+          // Regular flow: extract text locally first
+          content = await extractTextFromFile(req.file.path);
+          
+          // If we have content, analyze it to extract skills
+          if (content) {
+            try {
+              console.log("Analyzing extracted resume content to extract skills...");
+              const analysis = await llmService.analyzeResume(content);
+              if (analysis && analysis.skills && Array.isArray(analysis.skills)) {
+                skills = analysis.skills;
+                console.log(`Extracted ${skills.length} skills from resume`);
+              }
+            } catch (analysisError) {
+              console.error("Error analyzing resume:", analysisError);
+              // Continue without skills rather than failing the upload
+            }
           }
         }
       }
@@ -98,8 +132,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!skills && content) {
         (async () => {
           try {
+            const skipLocalTextExtraction = getSkipLocalTextExtraction();
             console.log("Running background analysis for resume ID:", resume.id);
-            const analysis = await llmService.analyzeResume(content);
+            
+            // If we're skipping local extraction, pass the file path
+            const analysis = skipLocalTextExtraction && req.file
+              ? await llmService.analyzeResume({resumeFilePath: req.file.path})
+              : await llmService.analyzeResume(content);
+              
             if (analysis && analysis.skills && Array.isArray(analysis.skills)) {
               await storage.updateResume(resume.id, { 
                 skills: analysis.skills 
@@ -183,12 +223,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).send("Forbidden");
       }
       
-      if (!resume.content) {
+      // Check if we have either content or a file URL
+      if (!resume.content && !resume.fileUrl) {
         return res.status(400).send("Resume has no content to analyze");
       }
       
-      // Call LLM to analyze resume
-      const analysis = await llmService.analyzeResume(resume.content);
+      // Determine if we should skip local text extraction and use the file directly
+      const skipLocalTextExtraction = getSkipLocalTextExtraction();
+      
+      // Get physical file path from fileUrl if available and we're skipping text extraction
+      let analysis;
+      if (skipLocalTextExtraction && resume.fileUrl) {
+        // Convert URL path to filesystem path
+        const filePath = path.join(process.cwd(), 'uploads', path.basename(resume.fileUrl));
+        
+        // Check if file exists
+        try {
+          await fs.promises.access(filePath, fs.constants.R_OK);
+          console.log(`Using direct file analysis for resume ${resumeId}: ${filePath}`);
+          analysis = await llmService.analyzeResume({resumeFilePath: filePath});
+        } catch (fileError) {
+          console.error(`File not found or not readable: ${filePath}`, fileError);
+          // Fall back to content-based analysis
+          if (resume.content) {
+            console.log(`Falling back to content analysis for resume ${resumeId}`);
+            analysis = await llmService.analyzeResume(resume.content);
+          } else {
+            return res.status(400).send("Resume file not found and no text content available");
+          }
+        }
+      } else if (resume.content) {
+        // Regular content-based analysis
+        analysis = await llmService.analyzeResume(resume.content);
+      } else {
+        return res.status(400).send("No content available for analysis");
+      }
       
       if (!analysis || !analysis.skills) {
         return res.status(500).send("Failed to extract skills from resume");
@@ -460,6 +529,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       provider, 
       model,
       success 
+    });
+  });
+  
+  // File processing toggle route
+  app.post("/api/llm-providers/file-processing", (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) return res.status(401).send("Unauthorized");
+    
+    const { skipLocalTextExtraction } = req.body;
+    if (typeof skipLocalTextExtraction !== 'boolean') {
+      return res.status(400).send("skipLocalTextExtraction boolean value is required");
+    }
+    
+    // Update the setting
+    setSkipLocalTextExtraction(skipLocalTextExtraction);
+    
+    res.json({ 
+      success: true,
+      skipLocalTextExtraction,
+      message: skipLocalTextExtraction 
+        ? "Direct file processing by LLM enabled" 
+        : "Local text extraction enabled"
     });
   });
 

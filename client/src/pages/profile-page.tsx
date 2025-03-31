@@ -36,6 +36,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CheckCircle, Upload, Settings, Bell, User, Shield } from "lucide-react";
@@ -70,6 +71,9 @@ export default function ProfilePage() {
         models: string[];
         currentModel: string;
       };
+    };
+    features?: {
+      skipLocalTextExtraction: boolean;
     };
   }>({ current: "", available: [], defaultProvider: "" });
   const [llmLoading, setLlmLoading] = useState(false);
@@ -185,6 +189,55 @@ export default function ProfilePage() {
     } catch (error) {
       toast({
         title: "Failed to update AI Model",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setLlmLoading(false);
+    }
+  };
+  
+  // Toggle file processing setting
+  const handleFileProcessingToggle = async (skipLocalTextExtraction: boolean) => {
+    if (llmLoading) return;
+    
+    // Don't make API call if the setting is already set to the desired value
+    if (llmProviders.features?.skipLocalTextExtraction === skipLocalTextExtraction) return;
+    
+    setLlmLoading(true);
+    try {
+      const response = await fetch('/api/llm-providers/file-processing', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ skipLocalTextExtraction }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        // Update the features state with the new setting
+        setLlmProviders(prev => ({
+          ...prev,
+          features: {
+            ...prev.features,
+            skipLocalTextExtraction: data.skipLocalTextExtraction
+          }
+        }));
+        
+        toast({
+          title: "File Processing Setting Updated",
+          description: skipLocalTextExtraction 
+            ? "Files will now be sent directly to AI models" 
+            : "Text will now be extracted locally before analysis",
+        });
+      } else {
+        throw new Error(`Failed to update file processing setting: ${response.statusText}`);
+      }
+    } catch (error) {
+      toast({
+        title: "Failed to update file processing setting",
         description: error instanceof Error ? error.message : "Unknown error",
         variant: "destructive",
       });
@@ -610,6 +663,27 @@ export default function ProfilePage() {
                           </p>
                         </div>
                       )}
+                      
+                      {/* File Processing Toggle */}
+                      <div className="grid gap-2 mt-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <label className="text-sm font-medium">Direct File Processing</label>
+                            <p className="text-xs text-gray-500">
+                              Send original resume files directly to the AI model instead of extracting text first
+                            </p>
+                          </div>
+                          <Switch
+                            checked={llmProviders.features?.skipLocalTextExtraction || false}
+                            onCheckedChange={handleFileProcessingToggle}
+                            disabled={llmLoading}
+                          />
+                        </div>
+                        <p className="text-xs text-gray-500 mt-2">
+                          When enabled, files are sent directly to the AI for analysis, preserving formatting and layout.
+                          When disabled, text is extracted locally first, which may be faster but less accurate.
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </CardContent>
