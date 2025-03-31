@@ -77,14 +77,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 console.log(`Extracted ${skills.length} skills from resume`);
               }
               
-              // Generate a text representation for storage
-              // This combines the extracted components into a readable format
-              const summaryText = analysis.summary || '';
-              const expText = analysis.experience ? analysis.experience.join('\n\n') : '';
-              const eduText = analysis.education ? analysis.education.join('\n\n') : '';
-              const skillsText = analysis.skills ? 'Skills: ' + analysis.skills.join(', ') : '';
+              // Generate a readable text content from the analysis components for preview display
+              const summarySection = analysis.summary ? `# Summary\n${analysis.summary}\n\n` : '';
               
-              content = `${summaryText}\n\n${expText}\n\n${eduText}\n\n${skillsText}`;
+              let experienceSection = '';
+              if (analysis.experience && analysis.experience.length > 0) {
+                experienceSection = `# Professional Experience\n`;
+                analysis.experience.forEach(exp => {
+                  experienceSection += `- ${exp}\n`;
+                });
+                experienceSection += '\n\n';
+              }
+              
+              let educationSection = '';
+              if (analysis.education && analysis.education.length > 0) {
+                educationSection = `# Education\n`;
+                analysis.education.forEach(edu => {
+                  educationSection += `- ${edu}\n`;
+                });
+                educationSection += '\n\n';
+              }
+              
+              let skillsSection = '';
+              if (analysis.skills && analysis.skills.length > 0) {
+                skillsSection = `# Skills\n${analysis.skills.join(', ')}`;
+              }
+              
+              // Combine all sections for the content preview
+              content = `${summarySection}${experienceSection}${educationSection}${skillsSection}`.trim();
+              
+              if (!content) {
+                // If we couldn't generate content from analysis, extract text as fallback
+                content = await extractTextFromFile(req.file.path);
+              }
+              
+              // Content is already generated in a nicely formatted way above
             }
           } catch (analysisError) {
             console.error("Error analyzing resume with LLM:", analysisError);
