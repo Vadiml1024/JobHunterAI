@@ -32,8 +32,8 @@ export const resumes = pgTable("resumes", {
   fileUrl: text("file_url"),
   skills: jsonb("skills").default({}),
   summary: text("summary"),
-  experience: jsonb("experience"),
-  education: jsonb("education"),
+  experience: text("experience"),
+  education: text("education"),
   matchScore: integer("match_score"),
   updatedAt: timestamp("updated_at").defaultNow()
 });

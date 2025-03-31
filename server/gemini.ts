@@ -81,8 +81,8 @@ import * as fs from 'fs';
 
 export async function analyzeResume(params: AnalyzeResumeParams): Promise<{
   skills: string[];
-  experience: any[];
-  education: any[];
+  experience: string[];
+  education: string[];
   summary: string;
 }> {
   const { resumeText, resumeFilePath, modelName = "gemini-pro", temperature = 0.2 } = params;
@@ -158,54 +158,21 @@ export async function analyzeResume(params: AnalyzeResumeParams): Promise<{
         const analysisResult = JSON.parse(jsonString);
         console.log('Parsed analysis result:', analysisResult);
         
-        // Properly handle experience and education as JSON objects
+        // Check if experience and education are arrays or strings
         let experienceData = analysisResult.experience || [];
         let educationData = analysisResult.education || [];
         
-        // Ensure experience is either a valid array or converted to one
+        // If experience or education is a string, keep it as is
         if (typeof experienceData === 'string') {
-          try {
-            // Try to parse if it's a JSON string
-            if (experienceData.trim().startsWith('[')) {
-              experienceData = JSON.parse(experienceData);
-            } else {
-              // Keep it as a string if not JSON
-              experienceData = experienceData;
-            }
-          } catch (e) {
-            // Keep original string if parsing fails
-            console.log('Failed to parse experience string as JSON:', e);
-          }
+          experienceData = experienceData;
         } else if (!Array.isArray(experienceData)) {
-          // If it's an object but not an array, wrap it in an array
-          if (experienceData && typeof experienceData === 'object') {
-            experienceData = [experienceData];
-          } else {
-            experienceData = [];
-          }
+          experienceData = [];
         }
         
-        // Ensure education is either a valid array or converted to one
         if (typeof educationData === 'string') {
-          try {
-            // Try to parse if it's a JSON string
-            if (educationData.trim().startsWith('[')) {
-              educationData = JSON.parse(educationData);
-            } else {
-              // Keep it as a string if not JSON
-              educationData = educationData;
-            }
-          } catch (e) {
-            // Keep original string if parsing fails
-            console.log('Failed to parse education string as JSON:', e);
-          }
+          educationData = educationData;
         } else if (!Array.isArray(educationData)) {
-          // If it's an object but not an array, wrap it in an array
-          if (educationData && typeof educationData === 'object') {
-            educationData = [educationData];
-          } else {
-            educationData = [];
-          }
+          educationData = [];
         }
         
         const analysisOutput = {
@@ -272,54 +239,21 @@ export async function analyzeResume(params: AnalyzeResumeParams): Promise<{
       const analysisResult = JSON.parse(jsonString);
       console.log('Parsed analysis result:', analysisResult);
       
-      // Properly handle experience and education as JSON objects
+      // Check if experience and education are arrays or strings
       let experienceData = analysisResult.experience || [];
       let educationData = analysisResult.education || [];
       
-      // Ensure experience is either a valid array or converted to one
+      // If experience or education is a string, keep it as is
       if (typeof experienceData === 'string') {
-        try {
-          // Try to parse if it's a JSON string
-          if (experienceData.trim().startsWith('[')) {
-            experienceData = JSON.parse(experienceData);
-          } else {
-            // Keep it as a string if not JSON
-            experienceData = experienceData;
-          }
-        } catch (e) {
-          // Keep original string if parsing fails
-          console.log('Failed to parse experience string as JSON:', e);
-        }
+        experienceData = experienceData;
       } else if (!Array.isArray(experienceData)) {
-        // If it's an object but not an array, wrap it in an array
-        if (experienceData && typeof experienceData === 'object') {
-          experienceData = [experienceData];
-        } else {
-          experienceData = [];
-        }
+        experienceData = [];
       }
       
-      // Ensure education is either a valid array or converted to one
       if (typeof educationData === 'string') {
-        try {
-          // Try to parse if it's a JSON string
-          if (educationData.trim().startsWith('[')) {
-            educationData = JSON.parse(educationData);
-          } else {
-            // Keep it as a string if not JSON
-            educationData = educationData;
-          }
-        } catch (e) {
-          // Keep original string if parsing fails
-          console.log('Failed to parse education string as JSON:', e);
-        }
+        educationData = educationData;
       } else if (!Array.isArray(educationData)) {
-        // If it's an object but not an array, wrap it in an array
-        if (educationData && typeof educationData === 'object') {
-          educationData = [educationData];
-        } else {
-          educationData = [];
-        }
+        educationData = [];
       }
       
       const textAnalysisOutput = {

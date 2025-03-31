@@ -1,30 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Resume as BaseResume } from "@shared/schema";
-import React from "react";
-
-// Define types for resume experience and education
-interface ExperienceItem {
-  company?: string;
-  position?: string;
-  role?: string;
-  description?: string;
-}
-
-interface EducationItem {
-  institution?: string;
-  school?: string;
-  qualification?: string;
-  degree?: string;
-  program?: string;
-  description?: string;
-}
-
-// Extend the Resume type to properly type the experience and education fields
-interface Resume extends Omit<BaseResume, 'experience' | 'education'> {
-  experience?: string | ExperienceItem[] | unknown;
-  education?: string | EducationItem[] | unknown;
-}
+import { Resume } from "@shared/schema";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -323,68 +299,21 @@ export default function ResumeList() {
                 <div>
                   <h3 className="text-lg font-medium text-primary">Experience</h3>
                   <div className="mt-2 bg-muted/30 p-4 rounded-md space-y-2">
-                    {((): JSX.Element => {
-                      // Most direct approach - handle the raw string representation
-                      const expStr = String(previewResume.experience);
-                      
-                      // Check if it's just a list of [object Object]s
-                      if (expStr.includes('[object Object]')) {
-                        // Extract any company/position data we can from the server logs
-                        const items = [];
-                        
-                        try {
-                          // Try to parse the JSON if it's in a string form
-                          const expData = typeof previewResume.experience === 'string' && 
-                            previewResume.experience.trim().startsWith('[') ?
-                            JSON.parse(previewResume.experience) : previewResume.experience;
-                          
-                          if (Array.isArray(expData)) {
-                            return (
-                              <div className="space-y-3">
-                                {expData.map((exp: ExperienceItem, i: number) => (
-                                  <div key={i} className="pb-2 border-b last:border-b-0 last:pb-0">
-                                    <div className="font-medium">{exp.position || exp.role || ''}</div>
-                                    <div>{exp.company || ''}</div>
-                                    {exp.description && <div className="text-sm text-gray-600 mt-1">{exp.description}</div>}
-                                  </div>
-                                ))}
-                              </div>
-                            );
-                          }
-                        } catch (e) {
-                          // Failed to parse JSON, continue with fallback
-                        }
-                        
-                        // Fallback for [object Object] lists
-                        return (
-                          <ul className="list-disc pl-4 space-y-1">
-                            {previewResume.skills && Array.isArray(previewResume.skills) && 
-                            previewResume.skills.filter(s => s.toLowerCase().includes('software') || 
-                              s.toLowerCase().includes('engineer') || 
-                              s.toLowerCase().includes('developer')).length > 0 ? (
-                              <li className="text-sm">Software Engineering positions</li>
-                            ) : null}
-                            <li className="text-sm">Employment history available in the original resume document</li>
-                            <li className="text-sm">Click "View Original File" to see complete experience details</li>
-                          </ul>
-                        );
-                      }
-                      
-                      // If it's a normal string, just display it
-                      if (typeof previewResume.experience === 'string') {
-                        return (
-                          <div className="whitespace-pre-wrap text-sm">
-                            {previewResume.experience}
-                          </div>
-                        );
-                      }
-                      
-                      return (
-                        <div className="text-sm">
-                          <p>Experience details available in the original resume.</p>
+                    {Array.isArray(previewResume.experience) ? (
+                      previewResume.experience.map((exp: any, i: number) => (
+                        <div key={i} className="pb-2 border-b last:border-b-0 last:pb-0">
+                          <div className="font-medium">{exp.position || exp.role || 'Position'}</div>
+                          <div>{exp.company || 'Company'}</div>
+                          {exp.description && <div className="text-sm text-gray-600 mt-1">{exp.description}</div>}
                         </div>
-                      );
-                    })()}
+                      ))
+                    ) : typeof previewResume.experience === 'string' ? (
+                      <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                        {previewResume.experience}
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground">No experience data found</p>
+                    )}
                   </div>
                 </div>
               )}
@@ -393,62 +322,21 @@ export default function ResumeList() {
                 <div>
                   <h3 className="text-lg font-medium text-primary">Education</h3>
                   <div className="mt-2 bg-muted/30 p-4 rounded-md space-y-2">
-                    {((): JSX.Element => {
-                      // Most direct approach - handle the raw string representation
-                      const eduStr = String(previewResume.education);
-                      
-                      // Check if it's just a list of [object Object]s
-                      if (eduStr.includes('[object Object]')) {
-                        // Try to parse the JSON if it's in a string form
-                        try {
-                          const eduData = typeof previewResume.education === 'string' && 
-                            previewResume.education.trim().startsWith('[') ?
-                            JSON.parse(previewResume.education) : previewResume.education;
-                          
-                          if (Array.isArray(eduData)) {
-                            return (
-                              <div className="space-y-3">
-                                {eduData.map((edu: EducationItem, i: number) => (
-                                  <div key={i} className="pb-2 border-b last:border-b-0 last:pb-0">
-                                    <div className="font-medium">{edu.institution || edu.school || ''}</div>
-                                    <div>{edu.qualification || edu.degree || edu.program || ''}</div>
-                                    {edu.description && <div className="text-sm text-gray-600 mt-1">{edu.description}</div>}
-                                  </div>
-                                ))}
-                              </div>
-                            );
-                          }
-                        } catch (e) {
-                          // Failed to parse JSON, continue with fallback
-                        }
-                        
-                        // Fallback for when we can't parse the education data
-                        return (
-                          <ul className="list-disc pl-4 space-y-1">
-                            {previewResume.summary && previewResume.summary.toLowerCase().includes('university') ? (
-                              <li className="text-sm">University education included</li>
-                            ) : null}
-                            <li className="text-sm">Education details available in the original resume document</li>
-                            <li className="text-sm">Click "View Original File" to see complete education details</li>
-                          </ul>
-                        );
-                      }
-                      
-                      // If it's a normal string, just display it
-                      if (typeof previewResume.education === 'string') {
-                        return (
-                          <div className="whitespace-pre-wrap text-sm">
-                            {previewResume.education}
-                          </div>
-                        );
-                      }
-                      
-                      return (
-                        <div className="text-sm">
-                          <p>Education details available in the original resume.</p>
+                    {Array.isArray(previewResume.education) ? (
+                      previewResume.education.map((edu: any, i: number) => (
+                        <div key={i} className="pb-2 border-b last:border-b-0 last:pb-0">
+                          <div className="font-medium">{edu.institution || 'Institution'}</div>
+                          <div>{edu.qualification || edu.degree || 'Qualification'}</div>
+                          {edu.description && <div className="text-sm text-gray-600 mt-1">{edu.description}</div>}
                         </div>
-                      );
-                    })()}
+                      ))
+                    ) : typeof previewResume.education === 'string' ? (
+                      <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                        {previewResume.education}
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground">No education data found</p>
+                    )}
                   </div>
                 </div>
               )}
