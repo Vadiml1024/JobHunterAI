@@ -2,7 +2,7 @@ import express, { type Express, type Request, type Response, type NextFunction }
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth } from "./auth";
-import { insertResumeSchema, insertApplicationSchema, insertJobSchema } from "@shared/schema";
+import { insertResumeSchema, insertApplicationSchema, insertJobSchema, type Job } from "@shared/schema";
 import { z } from "zod";
 import * as llmService from "./llm-service";
 import { LLMProvider } from "./config";
@@ -226,10 +226,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!req.isAuthenticated()) return res.status(401).send("Unauthorized");
     
     const filters: any = {};
+    
+    // Basic filters
     if (req.query.title) filters.title = req.query.title;
     if (req.query.company) filters.company = req.query.company;
     if (req.query.location) filters.location = req.query.location;
-    if (req.query.remoteOption) filters.remoteOption = req.query.remoteOption;
+    
+    // Filter by job type
+    if (req.query.jobType) {
+      const jobTypes = Array.isArray(req.query.jobType) 
+        ? req.query.jobType 
+        : [req.query.jobType];
+        
+      // Convert UI filter format to match database format
+      // The database has "Full-time" but the UI sends "fulltime"
+      const mappedJobTypes = jobTypes.map(type => {
+        if (type === 'fulltime') return 'Full-time';
+        if (type === 'parttime') return 'Part-time';
+        if (type === 'contract') return 'Contract';
+        if (type === 'internship') return 'Internship';
+        return type;
+      });
+      
+      // Special handling for job type to filter by each selected value
+      filters.jobType = (job: Job) => {
+        return mappedJobTypes.includes(job.jobType || '');
+      };
+    }
+    
+    // Filter by remote option
+    if (req.query.remoteOptions) {
+      const remoteOptions = Array.isArray(req.query.remoteOptions) 
+        ? req.query.remoteOptions 
+        : [req.query.remoteOptions];
+      
+      // Map remote options to match database format
+      const mappedRemoteOptions = remoteOptions.map(option => {
+        if (option === 'remote') return 'Remote';
+        if (option === 'hybrid') return 'Hybrid';
+        if (option === 'onsite') return 'On-site';
+        return option;
+      });
+      
+      filters.remoteOption = (job: Job) => {
+        return mappedRemoteOptions.includes(job.remoteOption || '');
+      };
+    }
+    
+    // If query parameter is provided, search through titles and descriptions
+    if (req.query.query) {
+      const query = (req.query.query as string).toLowerCase();
+      
+      // Special handling for search query
+      filters._query = (job: Job) => {
+        return (
+          job.title.toLowerCase().includes(query) ||
+          (job.description && job.description.toLowerCase().includes(query)) ||
+          job.company.toLowerCase().includes(query)
+        );
+      };
+    }
     
     const jobs = await storage.getJobs(Object.keys(filters).length > 0 ? filters : undefined);
     res.json(jobs);

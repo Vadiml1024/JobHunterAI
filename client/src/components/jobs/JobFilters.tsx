@@ -205,19 +205,19 @@ export default function JobFilters({ onApplyFilters }: JobFiltersProps) {
         </div>
       </CardContent>
       
-      <CardFooter className="pt-4 border-t border-gray-200 flex space-x-3 px-6 pb-6">
+      <CardFooter className="pt-4 border-t border-gray-200 flex flex-col space-y-3 px-6 pb-8 sticky bottom-0 z-10 bg-white">
         <Button 
-          variant="outline" 
-          className="flex-1"
-          onClick={handleResetFilters}
-        >
-          Reset Filters
-        </Button>
-        <Button 
-          className="flex-1"
+          className="w-full"
           onClick={handleApplyFilters}
         >
           Apply Filters
+        </Button>
+        <Button 
+          variant="outline" 
+          className="w-full"
+          onClick={handleResetFilters}
+        >
+          Reset Filters
         </Button>
       </CardFooter>
     </Card>

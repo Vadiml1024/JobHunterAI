@@ -20,6 +20,38 @@ export default function JobList({ filters }: JobListProps) {
   
   const { data: jobs, isLoading } = useQuery<Job[]>({
     queryKey: ["/api/jobs", filters],
+    queryFn: async ({ queryKey }) => {
+      const [endpoint, filterParams] = queryKey;
+      
+      // Build query string from filters
+      const params = new URLSearchParams();
+      
+      if (filterParams) {
+        Object.entries(filterParams).forEach(([key, value]) => {
+          // Skip empty values and arrays
+          if (!value) return;
+          
+          if (Array.isArray(value) && value.length > 0) {
+            // Handle arrays like jobType, remoteOptions, etc.
+            value.forEach(item => {
+              params.append(key, item);
+            });
+          } else if (typeof value === 'string' || typeof value === 'number') {
+            params.append(key, String(value));
+          }
+        });
+      }
+      
+      const queryString = params.toString();
+      const url = `${endpoint}${queryString ? `?${queryString}` : ''}`;
+      
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error('Failed to fetch jobs');
+      }
+      
+      return response.json();
+    }
   });
   
   const itemsPerPage = 10;
@@ -188,7 +220,7 @@ export default function JobList({ filters }: JobListProps) {
                 {totalPages > 5 && (
                   <>
                     <PaginationItem>
-                      <PaginationLink disabled>...</PaginationLink>
+                      <span className="flex h-9 w-9 items-center justify-center text-sm">...</span>
                     </PaginationItem>
                     <PaginationItem>
                       <PaginationLink 

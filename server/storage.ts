@@ -130,13 +130,20 @@ export class MemStorage implements IStorage {
   }
 
   // Job methods
-  async getJobs(filters?: Partial<Job>): Promise<Job[]> {
+  async getJobs(filters?: Partial<Job> & Record<string, any>): Promise<Job[]> {
     let jobs = Array.from(this.jobs.values());
     
     if (filters) {
       jobs = jobs.filter(job => {
         for (const [key, value] of Object.entries(filters)) {
-          if (job[key as keyof Job] !== value) {
+          // If the filter value is a function, use it for custom filtering
+          if (typeof value === 'function') {
+            if (!value(job)) {
+              return false;
+            }
+          } 
+          // Skip internal keys that start with underscore (used for special filters)
+          else if (!key.startsWith('_') && job[key as keyof Job] !== value) {
             return false;
           }
         }
