@@ -1,6 +1,30 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Resume } from "@shared/schema";
+import { Resume as BaseResume } from "@shared/schema";
+import React from "react";
+
+// Define types for resume experience and education
+interface ExperienceItem {
+  company?: string;
+  position?: string;
+  role?: string;
+  description?: string;
+}
+
+interface EducationItem {
+  institution?: string;
+  school?: string;
+  qualification?: string;
+  degree?: string;
+  program?: string;
+  description?: string;
+}
+
+// Extend the Resume type to properly type the experience and education fields
+interface Resume extends Omit<BaseResume, 'experience' | 'education'> {
+  experience?: string | ExperienceItem[] | unknown;
+  education?: string | EducationItem[] | unknown;
+}
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -299,7 +323,7 @@ export default function ResumeList() {
                 <div>
                   <h3 className="text-lg font-medium text-primary">Experience</h3>
                   <div className="mt-2 bg-muted/30 p-4 rounded-md space-y-2">
-                    {(() => {
+                    {((): JSX.Element => {
                       // Most direct approach - handle the raw string representation
                       const expStr = String(previewResume.experience);
                       
@@ -315,13 +339,17 @@ export default function ResumeList() {
                             JSON.parse(previewResume.experience) : previewResume.experience;
                           
                           if (Array.isArray(expData)) {
-                            return expData.map((exp, i) => (
-                              <div key={i} className="pb-2 border-b last:border-b-0 last:pb-0">
-                                <div className="font-medium">{exp.position || exp.role || ''}</div>
-                                <div>{exp.company || ''}</div>
-                                {exp.description && <div className="text-sm text-gray-600 mt-1">{exp.description}</div>}
+                            return (
+                              <div className="space-y-3">
+                                {expData.map((exp: ExperienceItem, i: number) => (
+                                  <div key={i} className="pb-2 border-b last:border-b-0 last:pb-0">
+                                    <div className="font-medium">{exp.position || exp.role || ''}</div>
+                                    <div>{exp.company || ''}</div>
+                                    {exp.description && <div className="text-sm text-gray-600 mt-1">{exp.description}</div>}
+                                  </div>
+                                ))}
                               </div>
-                            ));
+                            );
                           }
                         } catch (e) {
                           // Failed to parse JSON, continue with fallback
@@ -365,7 +393,7 @@ export default function ResumeList() {
                 <div>
                   <h3 className="text-lg font-medium text-primary">Education</h3>
                   <div className="mt-2 bg-muted/30 p-4 rounded-md space-y-2">
-                    {(() => {
+                    {((): JSX.Element => {
                       // Most direct approach - handle the raw string representation
                       const eduStr = String(previewResume.education);
                       
@@ -378,13 +406,17 @@ export default function ResumeList() {
                             JSON.parse(previewResume.education) : previewResume.education;
                           
                           if (Array.isArray(eduData)) {
-                            return eduData.map((edu, i) => (
-                              <div key={i} className="pb-2 border-b last:border-b-0 last:pb-0">
-                                <div className="font-medium">{edu.institution || edu.school || ''}</div>
-                                <div>{edu.qualification || edu.degree || edu.program || ''}</div>
-                                {edu.description && <div className="text-sm text-gray-600 mt-1">{edu.description}</div>}
+                            return (
+                              <div className="space-y-3">
+                                {eduData.map((edu: EducationItem, i: number) => (
+                                  <div key={i} className="pb-2 border-b last:border-b-0 last:pb-0">
+                                    <div className="font-medium">{edu.institution || edu.school || ''}</div>
+                                    <div>{edu.qualification || edu.degree || edu.program || ''}</div>
+                                    {edu.description && <div className="text-sm text-gray-600 mt-1">{edu.description}</div>}
+                                  </div>
+                                ))}
                               </div>
-                            ));
+                            );
                           }
                         } catch (e) {
                           // Failed to parse JSON, continue with fallback
